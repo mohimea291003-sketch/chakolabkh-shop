@@ -690,7 +690,11 @@
       <h2>Checkout</h2>
     </div>
 
-    <button class="close-btn" onclick="closeCheckout()">
+    <button
+      class="close-btn"
+      type="button"
+      onclick="closeCheckout()"
+    >
       ×
     </button>
   </div>
@@ -705,6 +709,7 @@
 
       <div class="form-group">
         <label>Full Name *</label>
+
         <input
           id="customerName"
           type="text"
@@ -715,6 +720,7 @@
 
       <div class="form-group">
         <label>Phone Number *</label>
+
         <input
           id="customerPhone"
           type="tel"
@@ -726,21 +732,55 @@
       <div class="form-group">
         <label>City / Province *</label>
 
-        <input
+        <select
           id="customerCity"
-          type="text"
           required
-          placeholder="Phnom Penh"
+          onchange="updatePaymentMethods()"
         >
+          <option value="">
+            Select city / province
+          </option>
+
+          <option value="Phnom Penh">Phnom Penh</option>
+          <option value="Banteay Meanchey">Banteay Meanchey</option>
+          <option value="Battambang">Battambang</option>
+          <option value="Kampong Cham">Kampong Cham</option>
+          <option value="Kampong Chhnang">Kampong Chhnang</option>
+          <option value="Kampong Speu">Kampong Speu</option>
+          <option value="Kampong Thom">Kampong Thom</option>
+          <option value="Kampot">Kampot</option>
+          <option value="Kandal">Kandal</option>
+          <option value="Kep">Kep</option>
+          <option value="Koh Kong">Koh Kong</option>
+          <option value="Kratie">Kratie</option>
+          <option value="Mondulkiri">Mondulkiri</option>
+          <option value="Oddar Meanchey">Oddar Meanchey</option>
+          <option value="Pailin">Pailin</option>
+          <option value="Preah Sihanouk">Preah Sihanouk / Sihanoukville</option>
+          <option value="Preah Vihear">Preah Vihear</option>
+          <option value="Prey Veng">Prey Veng</option>
+          <option value="Pursat">Pursat</option>
+          <option value="Ratanakiri">Ratanakiri</option>
+          <option value="Siem Reap">Siem Reap</option>
+          <option value="Stung Treng">Stung Treng</option>
+          <option value="Svay Rieng">Svay Rieng</option>
+          <option value="Takeo">Takeo</option>
+          <option value="Tboung Khmum">Tboung Khmum</option>
+        </select>
       </div>
 
       <div class="form-group">
         <label>Payment Method *</label>
 
-        <select id="paymentMethod" required>
-          <option value="">Select payment</option>
-          <option value="ABA / KHQR">ABA / KHQR</option>
-          <option value="Cash on Delivery">Cash on Delivery</option>
+        <select
+          id="paymentMethod"
+          required
+          disabled
+          onchange="updateLocationSection()"
+        >
+          <option value="">
+            Select city / province first
+          </option>
         </select>
       </div>
 
@@ -752,6 +792,51 @@
           required
           placeholder="House number, street, Sangkat, Khan..."
         ></textarea>
+      </div>
+
+      <div
+        class="form-group full"
+        id="codLocationGroup"
+        style="display:none;"
+      >
+        <label>Delivery Location *</label>
+
+        <p
+          style="
+            font-size:13px;
+            color:#777;
+            margin-bottom:10px;
+          "
+        >
+          Cash on Delivery in Phnom Penh requires your delivery location.
+        </p>
+
+        <button
+          type="button"
+          class="checkout-btn"
+          style="margin-top:0;"
+          onclick="getDeliveryLocation()"
+        >
+          📍 Use My Current Location
+        </button>
+
+        <div
+          id="deliveryLocationStatus"
+          style="
+            margin-top:10px;
+            font-size:13px;
+          "
+        ></div>
+
+        <input
+          type="hidden"
+          id="customerLatitude"
+        >
+
+        <input
+          type="hidden"
+          id="customerLongitude"
+        >
       </div>
 
       <div class="form-group full">
@@ -766,6 +851,7 @@
     </div>
 
     <div class="checkout-order">
+
       <div>
         <span>Subtotal</span>
         <strong id="checkoutSubtotal">$0.00</strong>
@@ -780,10 +866,14 @@
         <span>Total</span>
         <strong id="checkoutTotal">$0.00</strong>
       </div>
+
     </div>
 
-    <button class="submit-order" type="submit">
-      Place Order
+    <button
+      class="submit-order"
+      type="submit"
+    >
+      Continue Order
     </button>
 
   </form>
