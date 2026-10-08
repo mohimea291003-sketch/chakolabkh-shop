@@ -790,7 +790,48 @@
 
 </div>
 
+<div class="payment-modal" id="paymentModal">
 
+  <button class="payment-close" onclick="closePaymentModal()">
+    ×
+  </button>
+
+  <h2>Complete Your Payment</h2>
+
+  <p class="payment-subtitle">
+    Scan the ABA / KHQR code below to pay.
+  </p>
+
+  <div class="payment-amount-box">
+    <span>Amount to pay</span>
+    <strong id="paymentAmount">$0.00</strong>
+  </div>
+
+  <img
+    src="aba-khqr.jpg"
+    alt="CHAKO LAB ABA KHQR"
+    class="payment-qr"
+  >
+
+  <p class="payment-note">
+    After completing the payment, return here and tap the button below.
+  </p>
+
+  <button
+    class="paid-button"
+    id="paidButton"
+    onclick="customerPaid()"
+  >
+    ✓ I Have Paid
+  </button>
+
+  <div
+    class="payment-status"
+    id="paymentStatus"
+  ></div>
+
+</div>
+  
 <div class="success-box" id="successBox">
 
   <div class="success-icon">
