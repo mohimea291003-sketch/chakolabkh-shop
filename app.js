@@ -166,8 +166,27 @@ window.getDeliveryLocation = function() {
       ).value = longitude;
 
 
-      status.textContent =
-        "✅ Delivery location received.";
+     const mapLink =
+  "https://www.google.com/maps?q=" +
+  latitude +
+  "," +
+  longitude;
+
+status.innerHTML = `
+  ✅ Delivery location received.<br>
+  <a
+    href="${mapLink}"
+    target="_blank"
+    style="
+      display:inline-block;
+      margin-top:8px;
+      font-weight:700;
+      text-decoration:underline;
+    "
+  >
+    📍 View My Location on Map
+  </a>
+`;
 
     },
 
