@@ -362,3 +362,26 @@ window.confirmCODOrder = function(order) {
 
   saveCart();
 };
+/* =========================================
+   KEEP PAYMENT OPTIONS SYNCED
+   ========================================= */
+
+function syncPaymentOptions() {
+  const city = document.getElementById("customerCity");
+
+  if (city && city.value) {
+    updatePaymentMethods();
+  }
+}
+
+document.addEventListener(
+  "DOMContentLoaded",
+  syncPaymentOptions
+);
+
+window.addEventListener(
+  "pageshow",
+  function() {
+    setTimeout(syncPaymentOptions, 100);
+  }
+);
