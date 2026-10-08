@@ -1404,3 +1404,137 @@ footer p {
   }
 
 }
+/* =========================================================
+   ABA / KHQR PAYMENT POPUP
+   ========================================================= */
+
+.payment-modal {
+  position: fixed;
+  z-index: 240;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  width: min(460px, calc(100% - 28px));
+  max-height: 92vh;
+  overflow-y: auto;
+
+  display: none;
+
+  background: white;
+  border-radius: 24px;
+  padding: 30px;
+
+  text-align: center;
+
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.18);
+}
+
+.payment-modal.show {
+  display: block;
+}
+
+.payment-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+
+  width: 38px;
+  height: 38px;
+
+  border: none;
+  border-radius: 50%;
+
+  background: #f1efed;
+  color: #171717;
+
+  font-size: 22px;
+}
+
+.payment-modal h2 {
+  margin-top: 8px;
+  margin-bottom: 8px;
+
+  font-size: 27px;
+}
+
+.payment-subtitle {
+  color: #77736f;
+  margin-bottom: 20px;
+}
+
+.payment-amount-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: #faf8f6;
+
+  padding: 15px 17px;
+  margin-bottom: 18px;
+
+  border-radius: 14px;
+}
+
+.payment-amount-box span {
+  color: #77736f;
+  font-size: 14px;
+}
+
+.payment-amount-box strong {
+  font-size: 22px;
+  color: #171717;
+}
+
+.payment-qr {
+  width: 100%;
+  max-width: 330px;
+
+  display: block;
+  margin: 0 auto 18px;
+
+  border-radius: 18px;
+}
+
+.payment-note {
+  color: #77736f;
+
+  font-size: 13px;
+  line-height: 1.6;
+
+  margin-bottom: 18px;
+}
+
+.paid-button {
+  width: 100%;
+
+  min-height: 52px;
+
+  border: none;
+  border-radius: 13px;
+
+  background: #171717;
+  color: white;
+
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.payment-status {
+  margin-top: 16px;
+
+  font-size: 14px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .payment-modal {
+    padding: 24px 18px;
+    border-radius: 20px;
+  }
+
+  .payment-qr {
+    max-width: 290px;
+  }
+}
