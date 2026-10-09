@@ -122,42 +122,60 @@ window.getDeliveryLocation = function() {
   const addressField =
     document.getElementById("customerAddress");
 
+  const latitudeField =
+    document.getElementById("customerLatitude");
+
+  const longitudeField =
+    document.getElementById("customerLongitude");
+
   if (!navigator.geolocation) {
     status.textContent =
-      "Location is not supported on this device.";
+      "❌ Location is not supported on this device.";
     return;
   }
 
   status.textContent =
-    "Getting your current location...";
+    "📍 Getting your current location...";
 
   navigator.geolocation.getCurrentPosition(
 
     async function(position) {
+
       const latitude =
         position.coords.latitude;
 
       const longitude =
         position.coords.longitude;
 
-      document.getElementById(
-        "customerLatitude"
-      ).value = latitude;
+      if (latitudeField) {
+        latitudeField.value = latitude;
+      }
 
-      document.getElementById(
-        "customerLongitude"
-      ).value = longitude;
+      if (longitudeField) {
+        longitudeField.value = longitude;
+      }
 
       const mapLink =
-        "https://www.google.com/maps?q=" +
+        "https://www.google.com/maps/search/?api=1&query=" +
         latitude +
         "," +
         longitude;
 
       status.textContent =
-        "Location received. Finding your address...";
+        "📍 Location received. Finding your address...";
 
       try {
+
+        if (
+          !window.google ||
+          !google.maps ||
+          !google.maps.Geocoder
+        ) {
+          throw new Error(
+            "Google Maps API is not ready."
+          );
+        }
+
         const geocoder =
           new google.maps.Geocoder();
 
@@ -166,36 +184,322 @@ window.getDeliveryLocation = function() {
             location: {
               lat: latitude,
               lng: longitude
-            }
+            },
+            language: "en"
           });
 
-const results =
-  response.results || [];
+        const results =
+          response.results || [];
 
-if (results.length > 0 && addressField) {
+        /*
+          --------------------------------
+          HELPERS
+          --------------------------------
+        */
 
-  const bestResult =
-    results.find(result =>
-      result.types.includes("street_address")
-    ) ||
-    results.find(result =>
-      result.types.includes("premise")
-    ) ||
-    results.find(result =>
-      result.types.includes("route")
-    ) ||
-    results.find(result =>
-      !result.types.includes("plus_code")
-    ) ||
-    results[0];
+        const looksLikePlusCode =
+          function(text) {
 
-  addressField.value =
-    bestResult.formatted_address;
-}
+            if (!text) return false;
+
+            return /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/i
+              .test(text.trim());
+          };
+
+
+        const getComponent =
+          function(type) {
+
+            for (const result of results) {
+
+              if (!result.address_components) {
+                continue;
+              }
+
+              const component =
+                result.address_components.find(
+                  item =>
+                    item.types.includes(type)
+                );
+
+              if (
+                component &&
+                component.long_name
+              ) {
+                return component.long_name;
+              }
+            }
+
+            return "";
+          };
+
+
+        /*
+          --------------------------------
+          GET ADDRESS COMPONENTS
+          --------------------------------
+        */
+
+        const streetNumber =
+          getComponent("street_number");
+
+        const route =
+          getComponent("route");
+
+        const premise =
+          getComponent("premise");
+
+        const subpremise =
+          getComponent("subpremise");
+
+        const neighborhood =
+          getComponent("neighborhood");
+
+        const sublocality2 =
+          getComponent("sublocality_level_2");
+
+        const sublocality1 =
+          getComponent("sublocality_level_1");
+
+        const district =
+          getComponent(
+            "administrative_area_level_2"
+          );
+
+        const commune =
+          getComponent(
+            "administrative_area_level_3"
+          );
+
+        const city =
+          getComponent("locality") ||
+          getComponent(
+            "administrative_area_level_1"
+          );
+
+        const postalCode =
+          getComponent("postal_code");
+
+        const country =
+          getComponent("country");
+
+
+        /*
+          --------------------------------
+          BUILD HUMAN-FRIENDLY ADDRESS
+          --------------------------------
+        */
+
+        const addressParts = [];
+
+        const addUnique =
+          function(value) {
+
+            if (!value) return;
+
+            if (looksLikePlusCode(value)) {
+              return;
+            }
+
+            const exists =
+              addressParts.some(
+                item =>
+                  item.toLowerCase() ===
+                  value.toLowerCase()
+              );
+
+            if (!exists) {
+              addressParts.push(value);
+            }
+          };
+
+
+        /*
+          Prefer:
+          House → Street → Sangkat/Commune
+          → Khan/District → City → Cambodia
+        */
+
+        let streetLine = "";
+
+        if (streetNumber && route) {
+          streetLine =
+            streetNumber + ", " + route;
+        }
+        else if (route) {
+          streetLine = route;
+        }
+        else if (
+          premise &&
+          !looksLikePlusCode(premise)
+        ) {
+          streetLine = premise;
+        }
+
+        addUnique(streetLine);
+
+        addUnique(subpremise);
+
+        addUnique(
+          commune ||
+          sublocality2 ||
+          neighborhood
+        );
+
+        addUnique(
+          district ||
+          sublocality1
+        );
+
+        addUnique(city);
+
+        addUnique(postalCode);
+
+        addUnique(country);
+
+
+        /*
+          --------------------------------
+          FALLBACK:
+          LOOK THROUGH ALL GOOGLE RESULTS
+          --------------------------------
+        */
+
+        let finalAddress =
+          addressParts.join(", ");
+
+
+        /*
+          If Google has an actual route
+          result, prefer it over generic
+          city / plus-code results.
+        */
+
+        const routeResult =
+          results.find(result => {
+
+            const hasRouteType =
+              result.types &&
+              result.types.includes("route");
+
+            const readable =
+              result.formatted_address &&
+              !looksLikePlusCode(
+                result.formatted_address
+              );
+
+            return hasRouteType && readable;
+          });
+
+
+        const streetResult =
+          results.find(result => {
+
+            const isStreet =
+              result.types &&
+              result.types.includes(
+                "street_address"
+              );
+
+            const readable =
+              result.formatted_address &&
+              !looksLikePlusCode(
+                result.formatted_address
+              );
+
+            return isStreet && readable;
+          });
+
+
+        /*
+          If our constructed result
+          has no street, prefer Google's
+          street / route result.
+        */
+
+        if (!route) {
+
+          if (streetResult) {
+            finalAddress =
+              streetResult.formatted_address;
+          }
+          else if (routeResult) {
+            finalAddress =
+              routeResult.formatted_address;
+          }
+          else {
+
+            const readableResult =
+              results.find(result => {
+
+                if (
+                  !result.formatted_address
+                ) {
+                  return false;
+                }
+
+                if (
+                  looksLikePlusCode(
+                    result.formatted_address
+                  )
+                ) {
+                  return false;
+                }
+
+                if (
+                  result.types &&
+                  result.types.includes(
+                    "plus_code"
+                  )
+                ) {
+                  return false;
+                }
+
+                return true;
+              });
+
+            if (readableResult) {
+              finalAddress =
+                readableResult
+                  .formatted_address;
+            }
+          }
+        }
+
+
+        /*
+          --------------------------------
+          FILL DELIVERY ADDRESS
+          --------------------------------
+        */
+
+        if (
+          addressField &&
+          finalAddress
+        ) {
+          addressField.value =
+            finalAddress;
+        }
+
+
+        /*
+          --------------------------------
+          SUCCESS MESSAGE
+          --------------------------------
+        */
+
+        const foundStreet =
+          Boolean(route);
 
         status.innerHTML = `
-          <div style="margin-top:8px;">
-            ✅ Location received and address filled automatically.
+          <div style="
+            margin-top:8px;
+          ">
+            ✅ Location received${
+              finalAddress
+                ? " and address filled automatically."
+                : "."
+            }
           </div>
 
           <a
@@ -218,18 +522,49 @@ if (results.length > 0 && addressField) {
             📍 View My Location on Map
           </a>
 
-          <div
-            style="
-              margin-top:8px;
-              font-size:12px;
-              color:#777;
-            "
-          >
-            Please check the delivery address and edit it if needed.
+          <div style="
+            margin-top:8px;
+            font-size:12px;
+            color:#777;
+          ">
+            ${
+              foundStreet
+                ? "Please check the delivery address and edit it if needed."
+                : "Google found your area but could not confirm the exact street. Please add your house or street details if needed."
+            }
           </div>
         `;
 
-      } catch (error) {
+
+        /*
+          Useful only for debugging.
+          Does not affect customer.
+        */
+
+        console.log(
+          "Google reverse geocoding results:",
+          results
+        );
+
+        console.log(
+          "Detected road:",
+          route
+        );
+
+        console.log(
+          "Final delivery address:",
+          finalAddress
+        );
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "Google address error:",
+          error
+        );
+
         status.innerHTML = `
           <div style="margin-top:8px;">
             ✅ Delivery location received.
@@ -255,29 +590,34 @@ if (results.length > 0 && addressField) {
             📍 View My Location on Map
           </a>
 
-          <div
-            style="
-              margin-top:8px;
-              font-size:12px;
-              color:#777;
-            "
-          >
-            We could not find the written address automatically.
-            Please enter your delivery address below.
+          <div style="
+            margin-top:8px;
+            font-size:12px;
+            color:#777;
+          ">
+            We received your exact map location,
+            but Google could not create the written address.
+            Please enter the delivery address manually.
           </div>
         `;
       }
     },
 
-    function() {
+    function(error) {
+
+      console.error(
+        "Location error:",
+        error
+      );
+
       status.textContent =
         "❌ Please allow location access and try again.";
     },
 
     {
       enableHighAccuracy: true,
-      timeout: 15000,
-      maximumAge: 60000
+      timeout: 20000,
+      maximumAge: 0
     }
   );
 };
