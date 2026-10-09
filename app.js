@@ -182,24 +182,15 @@ window.getDeliveryLocation = function() {
 
         if (result) {
 
-          const addressParts = [
-            result.housenumber,
-            result.street,
-            result.suburb,
-            result.district,
-            result.city,
-            result.county,
-            result.state
-          ].filter(Boolean);
-
           const cleanAddress =
-            addressParts.length > 0
-              ? [...new Set(addressParts)].join(", ")
-              : result.formatted;
+  result.formatted ||
+  [result.address_line1, result.address_line2]
+    .filter(Boolean)
+    .join(", ");
 
-          if (cleanAddress) {
-            addressField.value = cleanAddress;
-          }
+if (cleanAddress) {
+  addressField.value = cleanAddress;
+}
 
           status.innerHTML = `
             <div style="margin-top:8px;">
