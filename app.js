@@ -1,6 +1,8 @@
 const CHAKO_PRODUCTS =
   window.CHAKO_PRODUCTS || [];
 
+const GEOAPIFY_API_KEY = "f2a3e19fd13b4784bd79b7d5921df381";
+
 let pendingPaymentOrder = null;
 
 
@@ -82,9 +84,6 @@ window.updatePaymentMethods = function() {
 
 window.updateLocationSection = function() {
 
-  const city =
-    document.getElementById("customerCity")?.value;
-
   const payment =
     document.getElementById("paymentMethod")?.value;
 
@@ -93,30 +92,24 @@ window.updateLocationSection = function() {
 
   if (!box) return;
 
+  const label =
+    box.querySelector("label");
 
-  if (
-    city === "Phnom Penh" &&
-    payment === "Cash on Delivery"
-  ) {
+  const description =
+    box.querySelector("p");
 
-    box.style.display = "block";
-
-  } else {
-
+  if (!payment) {
     box.style.display = "none";
-
-    document.getElementById(
-      "customerLatitude"
-    ).value = "";
-
-    document.getElementById(
-      "customerLongitude"
-    ).value = "";
-
-    document.getElementById(
-      "deliveryLocationStatus"
-    ).textContent = "";
+    return;
   }
+
+  box.style.display = "block";
+
+  label.textContent =
+    "Delivery Location *";
+
+  description.textContent =
+    "Please use your current location so we can automatically fill your delivery address.";
 };
 
 
@@ -125,86 +118,176 @@ window.updateLocationSection = function() {
    ========================================= */
 
 window.getDeliveryLocation = function() {
-
   const status =
-    document.getElementById(
-      "deliveryLocationStatus"
-    );
+    document.getElementById("deliveryLocationStatus");
 
+  const addressField =
+    document.getElementById("customerAddress");
 
   if (!navigator.geolocation) {
-
     status.textContent =
       "Location is not supported on this device.";
-
     return;
   }
 
-
   status.textContent =
-    "Getting your location...";
-
+    "Getting your location and address...";
 
   navigator.geolocation.getCurrentPosition(
 
-    function(position) {
-
+    async function(position) {
       const latitude =
         position.coords.latitude;
 
       const longitude =
         position.coords.longitude;
 
-
       document.getElementById(
         "customerLatitude"
       ).value = latitude;
-
 
       document.getElementById(
         "customerLongitude"
       ).value = longitude;
 
+      const mapLink =
+        "https://www.google.com/maps?q=" +
+        latitude +
+        "," +
+        longitude;
 
-     const mapLink =
-  "https://www.google.com/maps?q=" +
-  latitude +
-  "," +
-  longitude;
+      try {
+        const params = new URLSearchParams({
+          lat: String(latitude),
+          lon: String(longitude),
+          format: "json",
+          apiKey: GEOAPIFY_API_KEY
+        });
 
-status.innerHTML = `
-  ✅ Delivery location received.<br>
-  <a
-    href="${mapLink}"
-    target="_blank"
-    style="
-      display:inline-block;
-      margin-top:8px;
-      font-weight:700;
-      text-decoration:underline;
-    "
-  >
-    📍 View My Location on Map
-  </a>
-`;
+        const response = await fetch(
+          "https://api.geoapify.com/v1/geocode/reverse?" +
+          params.toString()
+        );
 
+        if (!response.ok) {
+          throw new Error("Geoapify request failed");
+        }
+
+        const data = await response.json();
+
+        const result =
+          data.results && data.results.length > 0
+            ? data.results[0]
+            : null;
+
+        if (result) {
+
+          const addressParts = [
+            result.housenumber,
+            result.street,
+            result.suburb,
+            result.district,
+            result.city,
+            result.county,
+            result.state
+          ].filter(Boolean);
+
+          const cleanAddress =
+            addressParts.length > 0
+              ? [...new Set(addressParts)].join(", ")
+              : result.formatted;
+
+          if (cleanAddress) {
+            addressField.value = cleanAddress;
+          }
+
+          status.innerHTML = `
+            <div style="margin-top:8px;">
+              ✅ Location received and address filled automatically.
+            </div>
+
+            <a
+              href="${mapLink}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="
+                display:block;
+                margin-top:10px;
+                padding:12px 14px;
+                background:#f3f3f3;
+                color:#171717;
+                border:1px solid #dddddd;
+                border-radius:10px;
+                font-weight:700;
+                text-align:center;
+                text-decoration:none;
+              "
+            >
+              📍 View My Location on Map
+            </a>
+
+            <div
+              style="
+                margin-top:8px;
+                font-size:12px;
+                color:#777;
+              "
+            >
+              Please check the delivery address and edit it if needed.
+            </div>
+          `;
+
+        } else {
+
+          status.innerHTML = `
+            ✅ Location received.<br>
+            Address could not be found automatically.
+            Please enter the delivery address manually.
+
+            <br><br>
+
+            <a
+              href="${mapLink}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              📍 View My Location on Map
+            </a>
+          `;
+        }
+
+      } catch (error) {
+
+        console.error(error);
+
+        status.innerHTML = `
+          ✅ Location received.<br>
+          Automatic address lookup failed.
+          Please enter your address manually.
+
+          <br><br>
+
+          <a
+            href="${mapLink}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            📍 View My Location on Map
+          </a>
+        `;
+      }
     },
-
 
     function() {
-
       status.textContent =
         "❌ Please allow location access and try again.";
-
     },
-
 
     {
       enableHighAccuracy: true,
       timeout: 15000,
       maximumAge: 60000
     }
-
   );
 };
 
@@ -215,47 +298,77 @@ status.innerHTML = `
 
 window.openPaymentModal = function(order) {
 
-  /* CASH ON DELIVERY */
+  /* =========================================
+     LOCATION REQUIRED FOR ALL ORDERS
+     ========================================= */
+
+  const latitude =
+    document.getElementById(
+      "customerLatitude"
+    )?.value;
+
+  const longitude =
+    document.getElementById(
+      "customerLongitude"
+    )?.value;
+
+  const address =
+    document.getElementById(
+      "customerAddress"
+    )?.value.trim();
+
+
+  if (!latitude || !longitude) {
+
+    alert(
+      "Please tap “Use My Current Location” before continuing your order."
+    );
+
+    document
+      .getElementById("codLocationGroup")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "center"
+      });
+
+    return;
+  }
+
+
+  /* =========================================
+     SAVE LOCATION INTO ORDER
+     ========================================= */
+
+  if (!order.customer) {
+    order.customer = {};
+  }
+
+  order.customer.latitude =
+    latitude;
+
+  order.customer.longitude =
+    longitude;
+
+  order.customer.mapLink =
+    "https://www.google.com/maps?q=" +
+    latitude +
+    "," +
+    longitude;
+
+  if (address) {
+    order.customer.address =
+      address;
+  }
+
+
+  /* =========================================
+     CASH ON DELIVERY
+     ========================================= */
 
   if (
     order.paymentMethod ===
     "Cash on Delivery"
   ) {
-
-    const latitude =
-      document.getElementById(
-        "customerLatitude"
-      ).value;
-
-    const longitude =
-      document.getElementById(
-        "customerLongitude"
-      ).value;
-
-
-    if (!latitude || !longitude) {
-
-      alert(
-        "Please share your delivery location before confirming a Cash on Delivery order."
-      );
-
-      return;
-    }
-
-
-    order.customer.latitude =
-      latitude;
-
-    order.customer.longitude =
-      longitude;
-
-
-    order.customer.mapLink =
-      "https://www.google.com/maps?q=" +
-      latitude +
-      "," +
-      longitude;
-
 
     confirmCODOrder(order);
 
@@ -263,7 +376,9 @@ window.openPaymentModal = function(order) {
   }
 
 
-  /* ABA / KHQR */
+  /* =========================================
+     ABA / KHQR
+     ========================================= */
 
   pendingPaymentOrder = order;
 
