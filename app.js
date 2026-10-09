@@ -1,8 +1,6 @@
 const CHAKO_PRODUCTS =
   window.CHAKO_PRODUCTS || [];
 
-const GEOAPIFY_API_KEY = "f2a3e19fd13b4784bd79b7d5921df381";
-
 let pendingPaymentOrder = null;
 
 
@@ -131,7 +129,7 @@ window.getDeliveryLocation = function() {
   }
 
   status.textContent =
-    "Getting your location and address...";
+    "Getting your current location...";
 
   navigator.geolocation.getCurrentPosition(
 
@@ -156,115 +154,101 @@ window.getDeliveryLocation = function() {
         "," +
         longitude;
 
+      status.textContent =
+        "Location received. Finding your address...";
+
       try {
-        const params = new URLSearchParams({
-          lat: String(latitude),
-          lon: String(longitude),
-          format: "json",
-          apiKey: GEOAPIFY_API_KEY
-        });
+        const geocoder =
+          new google.maps.Geocoder();
 
-        const response = await fetch(
-          "https://api.geoapify.com/v1/geocode/reverse?" +
-          params.toString()
-        );
+        const response =
+          await geocoder.geocode({
+            location: {
+              lat: latitude,
+              lng: longitude
+            }
+          });
 
-        if (!response.ok) {
-          throw new Error("Geoapify request failed");
+        const results =
+          response.results || [];
+
+        if (results.length > 0 && addressField) {
+          addressField.value =
+            results[0].formatted_address;
         }
-
-        const data = await response.json();
-
-        const result =
-          data.results && data.results.length > 0
-            ? data.results[0]
-            : null;
-
-        if (result) {
-
-          const cleanAddress =
-  result.formatted ||
-  [result.address_line1, result.address_line2]
-    .filter(Boolean)
-    .join(", ");
-
-if (cleanAddress) {
-  addressField.value = cleanAddress;
-}
-
-          status.innerHTML = `
-            <div style="margin-top:8px;">
-              ✅ Location received and address filled automatically.
-            </div>
-
-            <a
-              href="${mapLink}"
-              target="_blank"
-              rel="noopener noreferrer"
-              style="
-                display:block;
-                margin-top:10px;
-                padding:12px 14px;
-                background:#f3f3f3;
-                color:#171717;
-                border:1px solid #dddddd;
-                border-radius:10px;
-                font-weight:700;
-                text-align:center;
-                text-decoration:none;
-              "
-            >
-              📍 View My Location on Map
-            </a>
-
-            <div
-              style="
-                margin-top:8px;
-                font-size:12px;
-                color:#777;
-              "
-            >
-              Please check the delivery address and edit it if needed.
-            </div>
-          `;
-
-        } else {
-
-          status.innerHTML = `
-            ✅ Location received.<br>
-            Address could not be found automatically.
-            Please enter the delivery address manually.
-
-            <br><br>
-
-            <a
-              href="${mapLink}"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              📍 View My Location on Map
-            </a>
-          `;
-        }
-
-      } catch (error) {
-
-        console.error(error);
 
         status.innerHTML = `
-          ✅ Location received.<br>
-          Automatic address lookup failed.
-          Please enter your address manually.
-
-          <br><br>
+          <div style="margin-top:8px;">
+            ✅ Location received and address filled automatically.
+          </div>
 
           <a
             href="${mapLink}"
             target="_blank"
             rel="noopener noreferrer"
+            style="
+              display:block;
+              margin-top:10px;
+              padding:12px 14px;
+              background:#f3f3f3;
+              color:#171717;
+              border:1px solid #dddddd;
+              border-radius:10px;
+              font-weight:700;
+              text-align:center;
+              text-decoration:none;
+            "
           >
             📍 View My Location on Map
           </a>
+
+          <div
+            style="
+              margin-top:8px;
+              font-size:12px;
+              color:#777;
+            "
+          >
+            Please check the delivery address and edit it if needed.
+          </div>
+        `;
+
+      } catch (error) {
+        status.innerHTML = `
+          <div style="margin-top:8px;">
+            ✅ Delivery location received.
+          </div>
+
+          <a
+            href="${mapLink}"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="
+              display:block;
+              margin-top:10px;
+              padding:12px 14px;
+              background:#f3f3f3;
+              color:#171717;
+              border:1px solid #dddddd;
+              border-radius:10px;
+              font-weight:700;
+              text-align:center;
+              text-decoration:none;
+            "
+          >
+            📍 View My Location on Map
+          </a>
+
+          <div
+            style="
+              margin-top:8px;
+              font-size:12px;
+              color:#777;
+            "
+          >
+            We could not find the written address automatically.
+            Please enter your delivery address below.
+          </div>
         `;
       }
     },
