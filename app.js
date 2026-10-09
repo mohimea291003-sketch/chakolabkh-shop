@@ -115,6 +115,62 @@ window.updateLocationSection = function() {
    GET DELIVERY LOCATION
    ========================================= */
 
+async function findNearbyLandmark(latitude, longitude) {
+  try {
+    const {
+      Place,
+      SearchNearbyRankPreference
+    } = await google.maps.importLibrary("places");
+
+    const { places } = await Place.searchNearby({
+      fields: [
+        "displayName",
+        "location",
+        "primaryType"
+      ],
+
+      locationRestriction: {
+        center: {
+          lat: latitude,
+          lng: longitude
+        },
+        radius: 800
+      },
+
+      maxResultCount: 10,
+
+      rankPreference:
+        SearchNearbyRankPreference.POPULARITY,
+
+      language: "en",
+      region: "KH"
+    });
+
+    if (!places || places.length === 0) {
+      return "";
+    }
+
+    const usablePlace =
+      places.find(place =>
+        place.displayName &&
+        place.displayName.trim() !== ""
+      );
+
+    if (!usablePlace) {
+      return "";
+    }
+
+    return usablePlace.displayName;
+
+  } catch (error) {
+    console.error(
+      "Nearby landmark search failed:",
+      error
+    );
+
+    return "";
+  }
+}
 window.getDeliveryLocation = function() {
   const status =
     document.getElementById("deliveryLocationStatus");
@@ -473,13 +529,30 @@ window.getDeliveryLocation = function() {
           --------------------------------
         */
 
-        if (
-          addressField &&
-          finalAddress
-        ) {
-          addressField.value =
-            finalAddress;
-        }
+      if (
+  addressField &&
+  finalAddress
+) {
+
+  const landmark =
+    await findNearbyLandmark(
+      latitude,
+      longitude
+    );
+
+  if (landmark) {
+
+    addressField.value =
+      finalAddress +
+      " — Near " +
+      landmark;
+
+  } else {
+
+    addressField.value =
+      finalAddress;
+  }
+}
 
 
         /*
