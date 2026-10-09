@@ -378,19 +378,15 @@ window.getDeliveryLocation = function() {
 
         let streetLine = "";
 
-        if (streetNumber && route) {
-          streetLine =
-            streetNumber + ", " + route;
-        }
-        else if (route) {
-          streetLine = route;
-        }
-        else if (
-          premise &&
-          !looksLikePlusCode(premise)
-        ) {
-          streetLine = premise;
-        }
+        if (route) {
+  streetLine = route;
+}
+else if (
+  premise &&
+  !looksLikePlusCode(premise)
+) {
+  streetLine = premise;
+}
 
         addUnique(streetLine);
 
@@ -529,7 +525,7 @@ window.getDeliveryLocation = function() {
           --------------------------------
         */
 
-      if (
+if (
   addressField &&
   finalAddress
 ) {
@@ -540,9 +536,13 @@ window.getDeliveryLocation = function() {
       longitude
     );
 
+  const houseNumber =
+    "House No: [Please enter], ";
+
   if (landmark) {
 
     addressField.value =
+      houseNumber +
       finalAddress +
       " — Near " +
       landmark;
@@ -550,10 +550,10 @@ window.getDeliveryLocation = function() {
   } else {
 
     addressField.value =
+      houseNumber +
       finalAddress;
   }
 }
-
 
         /*
           --------------------------------
