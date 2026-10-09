@@ -544,8 +544,8 @@ if (
     addressField.value =
       houseNumber +
       finalAddress +
-      " — Near " +
-      landmark;
+" — " +
+landmark;
 
   } else {
 
