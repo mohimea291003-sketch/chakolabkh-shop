@@ -169,13 +169,29 @@ window.getDeliveryLocation = function() {
             }
           });
 
-        const results =
-          response.results || [];
+const results =
+  response.results || [];
 
-        if (results.length > 0 && addressField) {
-          addressField.value =
-            results[0].formatted_address;
-        }
+if (results.length > 0 && addressField) {
+
+  const bestResult =
+    results.find(result =>
+      result.types.includes("street_address")
+    ) ||
+    results.find(result =>
+      result.types.includes("premise")
+    ) ||
+    results.find(result =>
+      result.types.includes("route")
+    ) ||
+    results.find(result =>
+      !result.types.includes("plus_code")
+    ) ||
+    results[0];
+
+  addressField.value =
+    bestResult.formatted_address;
+}
 
         status.innerHTML = `
           <div style="margin-top:8px;">
