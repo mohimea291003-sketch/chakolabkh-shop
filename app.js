@@ -786,6 +786,13 @@ window.openPaymentModal = function(order) {
 
   pendingPaymentOrder = order;
 
+  if (!pendingPaymentOrder.websiteOrderId) {
+  pendingPaymentOrder.websiteOrderId =
+    "CHAKO-WEB-" +
+    Date.now() +
+    "-" +
+    Math.random().toString(36).slice(2, 8).toUpperCase();
+}
 
   document.getElementById(
     "paymentAmount"
