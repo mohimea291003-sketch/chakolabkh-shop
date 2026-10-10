@@ -3,6 +3,10 @@ const CHAKO_PRODUCTS =
 
 let pendingPaymentOrder = null;
 
+const PAYMENT_CHECK_URL =
+  "https://script.google.com/macros/s/AKfycbw0_TGmUmDzA4GkNHeZaVkbKWNRii1REVie_o0zv1Idj8DCAvtx5ITOxLDQ54pdJF3m/exec";
+
+let paymentCheckInProgress = false;
 
 /* =========================================
    CITY / PROVINCE → PAYMENT OPTIONS
@@ -838,25 +842,183 @@ window.closePaymentModal = function() {
    CUSTOMER HAS PAID
    ========================================= */
 
-window.customerPaid = function() {
-
+window.customerPaid = async function() {
   const status =
-    document.getElementById(
-      "paymentStatus"
-    );
+    document.getElementById("paymentStatus");
 
+  if (paymentCheckInProgress) {
+    return;
+  }
+
+  if (!pendingPaymentOrder) {
+    status.textContent =
+      "❌ Order information is missing. Please reopen checkout.";
+    return;
+  }
+
+  paymentCheckInProgress = true;
+
+  const amount =
+    Number(pendingPaymentOrder.total).toFixed(2);
+
+  const orderId =
+    pendingPaymentOrder.websiteOrderId ||
+    pendingPaymentOrder.orderNumber ||
+    ("CHAKO-WEB-" + Date.now());
+
+  pendingPaymentOrder.websiteOrderId = orderId;
 
   status.textContent =
     "⏳ Checking your ABA payment...";
 
+  const startTime = Date.now();
 
-  /*
-    Later we connect this to Telegram
-    payment verification.
+  const maxWaitTime =
+    90 * 1000;
 
-    This button alone NEVER marks
-    the order as paid.
-  */
+  const checkInterval =
+    4000;
+
+  try {
+
+    while (
+      Date.now() - startTime < maxWaitTime
+    ) {
+
+      const url =
+        PAYMENT_CHECK_URL +
+        "?action=checkPayment" +
+        "&amount=" +
+        encodeURIComponent(amount) +
+        "&orderId=" +
+        encodeURIComponent(orderId) +
+        "&_=" +
+        Date.now();
+
+      const response =
+        await fetch(url, {
+          cache: "no-store"
+        });
+
+      if (!response.ok) {
+        throw new Error(
+          "HTTP " + response.status
+        );
+      }
+
+      const data =
+        await response.json();
+
+
+      /* =========================
+         PAYMENT CONFIRMED
+         ========================= */
+
+      if (
+        data.ok === true &&
+        data.status === "CONFIRMED"
+      ) {
+
+        status.textContent =
+          "✅ Payment confirmed!";
+
+        const paymentDetails = [
+          "✅ Payment confirmed"
+        ];
+
+        if (data.trxId) {
+          paymentDetails.push(
+            "Trx ID: " + data.trxId
+          );
+        }
+
+        if (data.apv) {
+          paymentDetails.push(
+            "APV: " + data.apv
+          );
+        }
+
+        window.confirmCODOrder(
+          pendingPaymentOrder,
+          "ABA / KHQR",
+          paymentDetails.join("<br>")
+        );
+
+        pendingPaymentOrder = null;
+
+        return;
+      }
+
+
+      /* =========================
+         SAME-AMOUNT CONFLICT
+         ========================= */
+
+      if (
+        data.status ===
+        "MULTIPLE_MATCHES"
+      ) {
+
+        status.textContent =
+          "⚠️ More than one payment with this amount was found. Please contact CHAKO LAB for confirmation.";
+
+        return;
+      }
+
+
+      /* =========================
+         INVALID REQUEST
+         ========================= */
+
+      if (
+        data.status ===
+        "INVALID_REQUEST"
+      ) {
+
+        status.textContent =
+          "❌ We could not verify this order. Please try checkout again.";
+
+        return;
+      }
+
+
+      /*
+        NOT_FOUND:
+        wait 4 seconds and check again
+      */
+
+      await new Promise(
+        resolve =>
+          setTimeout(
+            resolve,
+            checkInterval
+          )
+      );
+    }
+
+
+    /* =========================
+       90 SECOND TIMEOUT
+       ========================= */
+
+    status.textContent =
+      "⚠️ Payment not found yet. If you already paid, please wait a moment and tap “I Have Paid” again.";
+
+  } catch (error) {
+
+    console.error(
+      "ABA payment verification error:",
+      error
+    );
+
+    status.textContent =
+      "⚠️ We could not check your payment right now. Please try again.";
+
+  } finally {
+
+    paymentCheckInProgress = false;
+
+  }
 };
 
 
@@ -864,8 +1026,11 @@ window.customerPaid = function() {
    CONFIRM CASH ON DELIVERY
    ========================================= */
 
-window.confirmCODOrder = function(order) {
-
+window.confirmCODOrder = function(
+  order,
+  paymentLabel = "Cash on Delivery",
+  paymentNote = ""
+) {
   document
     .getElementById("paymentModal")
     ?.classList.remove("show");
@@ -880,8 +1045,13 @@ window.confirmCODOrder = function(order) {
 
       <br><br>
 
-      Payment:
-      <strong>Cash on Delivery</strong>
+Payment:
+<strong>${paymentLabel}</strong>
+
+${paymentNote
+  ? `<br>${paymentNote}`
+  : ""
+}
 
       <br><br>
 
