@@ -591,6 +591,39 @@
         grid-column: auto;
       }
     }
+    .payment-reference-field {
+      margin-bottom: 18px;
+      text-align: left;
+    }
+    .payment-reference-field label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .payment-reference-field textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #d8d5d1;
+      border-radius: 10px;
+      background: white;
+      font-size: 16px;
+      resize: vertical;
+    }
+    .payment-reference-field textarea:focus {
+      outline: 2px solid #171717;
+      outline-offset: 2px;
+    }
+    .payment-reference-field p {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+    .paid-button:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
   </style>
   
   <link rel="stylesheet" href="style.css">
@@ -892,7 +925,7 @@
   </p>
 
   <div class="payment-amount-box">
-    <span>Amount to pay</span>
+    <span id="paymentAmountLabel">Amount to pay</span>
     <strong id="paymentAmount">$0.00</strong>
   </div>
 
@@ -903,8 +936,25 @@
   >
 
   <p class="payment-note">
-    After completing the payment, return here and tap the button below.
+    After paying, enter the Trx ID from your receipt and tap “I Have Paid”.
   </p>
+
+  <div class="payment-reference-field">
+    <label for="paymentTransactionIds">ABA transaction ID (Trx ID)</label>
+    <textarea
+      id="paymentTransactionIds"
+      rows="2"
+      maxlength="420"
+      autocomplete="off"
+      spellcheck="false"
+      aria-describedby="paymentReferenceHelp"
+      placeholder="Enter your transaction ID"
+    ></textarea>
+    <p id="paymentReferenceHelp">
+      If you pay in two parts, enter both IDs separated by a comma.
+      If your receipt has no matching Trx ID, contact CHAKO LAB for help.
+    </p>
+  </div>
 
   <button
     class="paid-button"
@@ -917,6 +967,8 @@
   <div
     class="payment-status"
     id="paymentStatus"
+    role="status"
+    aria-live="polite"
   ></div>
 
 </div>
@@ -1635,7 +1687,7 @@
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVcW_ktDPKn1bmSlbz3dJXs3rXA4nqWl0&v=weekly&language=en&region=KH"></script>
 
-<script src="app.js?v=16"></script>
+<script src="app.js?v=17"></script>
 
 </body>
 </html>

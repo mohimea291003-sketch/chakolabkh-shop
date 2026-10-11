@@ -8,6 +8,8 @@ const PAYMENT_CHECK_URL =
 
 let paymentCheckInProgress = false;
 
+const PAYMENT_API_VERSION = "chako-payment-reference-v1";
+
 function sendWebsiteOrderReceipt(order, extra = {}) {
   if (!order) return;
 
@@ -829,7 +831,24 @@ window.openPaymentModal = function(order) {
      ABA / KHQR
      ========================================= */
 
+  // Keep the same order and verified payments when checkout is reopened
+  // after an incomplete transfer.
+  const sameCheckout = pendingPaymentOrder &&
+    pendingPaymentOrder.total === order.total &&
+    JSON.stringify(pendingPaymentOrder.items) === JSON.stringify(order.items) &&
+    JSON.stringify(pendingPaymentOrder.customer) === JSON.stringify(order.customer);
+  if (sameCheckout) {
+    order.orderNumber = pendingPaymentOrder.orderNumber;
+    order.websiteOrderId = pendingPaymentOrder.websiteOrderId;
+    order.paymentTrxIds = pendingPaymentOrder.paymentTrxIds;
+    order.lastVerifiedPayment = pendingPaymentOrder.lastVerifiedPayment;
+  }
   pendingPaymentOrder = order;
+
+  const referenceInput = document.getElementById("paymentTransactionIds");
+  if (referenceInput) {
+    referenceInput.value = (order.paymentTrxIds || []).join(", ");
+  }
 
   if (!pendingPaymentOrder.websiteOrderId) {
   pendingPaymentOrder.websiteOrderId =
@@ -843,7 +862,10 @@ window.openPaymentModal = function(order) {
     "paymentAmount"
   ).textContent =
     "$" +
-    Number(order.total).toFixed(2);
+    Number(order.lastVerifiedPayment?.remainingAmount ?? order.total).toFixed(2);
+
+  document.getElementById("paymentAmountLabel").textContent =
+    order.lastVerifiedPayment ? "Remaining to pay" : "Amount to pay";
 
 
   document.getElementById(
@@ -884,244 +906,154 @@ window.closePaymentModal = function() {
    ========================================= */
 
 window.customerPaid = async function() {
-  const status =
-    document.getElementById("paymentStatus");
-
-  if (paymentCheckInProgress) {
+  const status = document.getElementById("paymentStatus");
+  const referenceInput = document.getElementById("paymentTransactionIds");
+  const button = document.getElementById("paidButton");
+  if (paymentCheckInProgress) return;
+  const order = pendingPaymentOrder;
+  if (!order) {
+    status.textContent = "Order information is missing. Please reopen checkout.";
     return;
   }
-
-  if (!pendingPaymentOrder) {
-    status.textContent =
-      "❌ Order information is missing. Please reopen checkout.";
+  const enteredRefs = String(referenceInput?.value || "").trim()
+    .split(/[\s,;+]+/).filter(Boolean);
+  if (!enteredRefs.length || enteredRefs.some(ref => !/^\d{6,40}$/.test(ref))) {
+    status.textContent = "Enter the numeric Trx ID from your payment receipt. For two payments, enter both IDs separated by a comma.";
+    referenceInput?.focus();
     return;
   }
-
+  const refs = [...new Set([...(order.paymentTrxIds || []), ...enteredRefs])];
+  if (refs.length > 10) {
+    status.textContent = "Please contact CHAKO LAB for help with this payment.";
+    return;
+  }
+  const totalCents = Math.round(Number(order.total) * 100);
+  if (!Number.isSafeInteger(totalCents) || totalCents <= 0) {
+    status.textContent = "We could not verify this order. Please reopen checkout.";
+    return;
+  }
+  const amount = (totalCents / 100).toFixed(2);
+  const orderId = order.websiteOrderId || order.orderNumber || ("CHAKO-WEB-" + Date.now());
+  order.websiteOrderId = orderId;
   paymentCheckInProgress = true;
-
-  const amount =
-    Number(pendingPaymentOrder.total).toFixed(2);
-
-  const orderId =
-    pendingPaymentOrder.websiteOrderId ||
-    pendingPaymentOrder.orderNumber ||
-    ("CHAKO-WEB-" + Date.now());
-
-  pendingPaymentOrder.websiteOrderId = orderId;
-
-  status.textContent =
-    "⏳ Checking your ABA payment...";
-
-  const startTime = Date.now();
-
-  const maxWaitTime =
-    90 * 1000;
-
-  const checkInterval =
-    4000;
+  if (button) button.disabled = true;
+  const previous = order.lastVerifiedPayment;
+  const previousBalance = previous
+    ? "Verified paid: $" + previous.paidAmount.toFixed(2) +
+      ". Remaining: $" + previous.remainingAmount.toFixed(2) + ". "
+    : "";
+  status.textContent = previousBalance + "Checking your payment transaction...";
 
   try {
+    // A version check prevents older deployments from ignoring the Trx IDs
+    // and claiming a different transfer by amount/time.
+    const versionResponse = await fetch(PAYMENT_CHECK_URL +
+      "?action=paymentVersion&_=" + Date.now(), { cache: "no-store" });
+    if (!versionResponse.ok) throw new Error("Payment service unavailable");
+    const version = await versionResponse.json();
+    if (version.ok !== true || version.apiVersion !== PAYMENT_API_VERSION) {
+      throw new Error("Payment service version mismatch");
+    }
+    const startTime = Date.now();
+    while (Date.now() - startTime < 90000) {
+      if (pendingPaymentOrder !== order) return;
+      const url = PAYMENT_CHECK_URL + "?action=checkPayment" +
+        "&amount=" + encodeURIComponent(amount) +
+        "&orderId=" + encodeURIComponent(orderId) +
+        "&trxIds=" + encodeURIComponent(refs.join(",")) + "&_=" + Date.now();
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      const data = await response.json();
+      if (pendingPaymentOrder !== order) return;
+      if (data.apiVersion !== PAYMENT_API_VERSION) {
+        throw new Error("Payment service version mismatch");
+      }
 
-    while (
-      Date.now() - startTime < maxWaitTime
-    ) {
-
-      const url =
-        PAYMENT_CHECK_URL +
-        "?action=checkPayment" +
-        "&amount=" +
-        encodeURIComponent(amount) +
-        "&orderId=" +
-        encodeURIComponent(orderId) +
-        "&_=" +
-        Date.now();
-
-      const response =
-        await fetch(url, {
-          cache: "no-store"
+      if (data.ok === true &&
+          ["CONFIRMED", "UNDERPAID", "OVERPAID"].includes(data.status)) {
+        const paid = Number(data.paidAmount);
+        const total = Number(data.orderTotal);
+        const remaining = Number(data.remainingAmount);
+        const extra = Number(data.overAmount);
+        const values = [paid, total, remaining, extra];
+        const paidCents = Math.round(paid * 100);
+        if (values.some(value => !Number.isFinite(value) || value < 0 ||
+              Math.abs(value * 100 - Math.round(value * 100)) > 0.000001) ||
+            Math.round(total * 100) !== totalCents ||
+            Math.round(remaining * 100) !== Math.max(0, totalCents - paidCents) ||
+            Math.round(extra * 100) !== Math.max(0, paidCents - totalCents) ||
+            (data.status === "CONFIRMED" && paidCents !== totalCents) ||
+            (data.status === "UNDERPAID" && (paidCents <= 0 || paidCents >= totalCents)) ||
+            (data.status === "OVERPAID" && paidCents <= totalCents)) {
+          throw new Error("Invalid payment balance response");
+        }
+        order.paymentTrxIds = refs;
+        order.lastVerifiedPayment = { paidAmount: paid, remainingAmount: remaining };
+        referenceInput.value = refs.join(", ");
+        if (data.status === "UNDERPAID") {
+          document.getElementById("paymentAmount").textContent = "$" + remaining.toFixed(2);
+          document.getElementById("paymentAmountLabel").textContent = "Remaining to pay";
+          status.innerHTML = "⚠️ <strong>Incomplete payment</strong><br><br>" +
+            "We received: <strong>$" + paid.toFixed(2) + "</strong><br>" +
+            "Order total: <strong>$" + total.toFixed(2) + "</strong><br>" +
+            "Remaining to pay: <strong>$" + remaining.toFixed(2) + "</strong><br><br>" +
+            "Pay the remaining <strong>$" + remaining.toFixed(2) +
+            "</strong>, add the new Trx ID above, then tap “I Have Paid” again.";
+          return;
+        }
+        if (data.status === "OVERPAID") {
+          status.innerHTML = "⚠️ <strong>Payment amount is higher than the order total</strong><br><br>" +
+            "We received: <strong>$" + paid.toFixed(2) + "</strong><br>" +
+            "Order total: <strong>$" + total.toFixed(2) + "</strong><br>" +
+            "Extra amount: <strong>$" + extra.toFixed(2) + "</strong><br><br>" +
+            "Please contact CHAKO LAB for assistance.";
+          return;
+        }
+        status.textContent = "✅ Payment confirmed!";
+        // Bank reference strings enter HTML only after character validation.
+        const safeTrxId = /^[\d +]+$/.test(String(data.trxId || "")) ? data.trxId : refs.join(" + ");
+        const safeApv = /^[\d +]+$/.test(String(data.apv || "")) ? data.apv : "";
+        const details = ["✅ Payment confirmed", "Trx ID: " + safeTrxId];
+        if (safeApv) details.push("APV: " + safeApv);
+        sendWebsiteOrderReceipt(order, {
+          paymentLabel: "ABA / KHQR", paymentStatus: "✅ PAID",
+          trxId: safeTrxId, apv: safeApv
         });
-
-      if (!response.ok) {
-        throw new Error(
-          "HTTP " + response.status
-        );
-      }
-
-      const data =
-        await response.json();
-
-
-      /* =========================
-         PAYMENT CONFIRMED
-         ========================= */
-
-      if (
-        data.ok === true &&
-        data.status === "CONFIRMED"
-      ) {
-
-        status.textContent =
-          "✅ Payment confirmed!";
-
-        const paymentDetails = [
-          "✅ Payment confirmed"
-        ];
-
-        if (data.trxId) {
-          paymentDetails.push(
-            "Trx ID: " + data.trxId
-          );
-        }
-
-        if (data.apv) {
-          paymentDetails.push(
-            "APV: " + data.apv
-          );
-        }
-
-        sendWebsiteOrderReceipt(
-  pendingPaymentOrder,
-  {
-    paymentLabel: "ABA / KHQR",
-    paymentStatus: "✅ PAID",
-    trxId: data.trxId || "",
-    apv: data.apv || ""
-  }
-);
-        window.confirmCODOrder(
-          pendingPaymentOrder,
-          "ABA / KHQR",
-          paymentDetails.join("<br>")
-        );
-
+        window.confirmCODOrder(order, "ABA / KHQR", details.join("<br>"));
         pendingPaymentOrder = null;
-
-        return;
-      }
-    /* ==============================
-       INCOMPLETE / PARTIAL PAYMENT
-       ============================== */
-
-    if (
-      data.ok === true &&
-      data.status === "UNDERPAID"
-    ) {
-      const paid =
-        Number(data.paidAmount || 0).toFixed(2);
-
-      const remaining =
-        Number(data.remainingAmount || 0).toFixed(2);
-
-      const total =
-        Number(data.orderTotal || amount).toFixed(2);
-
-      status.innerHTML =
-        "⚠️ <strong>Incomplete payment</strong><br><br>" +
-        "We received: <strong>$" + paid + "</strong><br>" +
-        "Order total: <strong>$" + total + "</strong><br>" +
-        "Remaining to pay: <strong>$" + remaining + "</strong><br><br>" +
-        "Please pay the remaining <strong>$" + remaining +
-        "</strong>, then tap “I Have Paid” again.";
-
-      return;
-    }
-
-
-    /* ==============================
-       OVERPAYMENT
-       ============================== */
-
-    if (
-      data.ok === true &&
-      data.status === "OVERPAID"
-    ) {
-      const paid =
-        Number(data.paidAmount || 0).toFixed(2);
-
-      const total =
-        Number(data.orderTotal || amount).toFixed(2);
-
-      const extra =
-        Number(data.overAmount || 0).toFixed(2);
-
-      status.innerHTML =
-        "⚠️ <strong>Payment amount is higher than the order total</strong><br><br>" +
-        "We detected: <strong>$" + paid + "</strong><br>" +
-        "Order total: <strong>$" + total + "</strong><br>" +
-        "Extra amount: <strong>$" + extra + "</strong><br><br>" +
-        "Please contact CHAKO LAB for assistance.";
-
-      return;
-    }
-
-      /* =========================
-         SAME-AMOUNT CONFLICT
-         ========================= */
-
-      if (
-        data.status ===
-        "MULTIPLE_MATCHES"
-      ) {
-
-        status.textContent =
-          "⚠️ More than one payment with this amount was found. Please contact CHAKO LAB for confirmation.";
-
         return;
       }
 
-
-      /* =========================
-         INVALID REQUEST
-         ========================= */
-
-      if (
-        data.status ===
-        "INVALID_REQUEST"
-      ) {
-
-        status.textContent =
-          "❌ We could not verify this order. Please try checkout again.";
-
+      const messages = {
+        NEEDS_REFERENCE: "Enter all Trx IDs for this order, including your first payment, and try again.",
+        INVALID_REFERENCE: "Check the Trx ID on your receipt and try again.",
+        MULTIPLE_MATCHES: "More than one record was found for this transaction. Please contact CHAKO LAB for confirmation.",
+        PAYMENT_ALREADY_USED: "This transaction is already linked to another order. Please contact CHAKO LAB for help.",
+        PAYMENT_VOID: "This transaction needs staff review. Please contact CHAKO LAB.",
+        PAYMENT_TOO_OLD: "Please contact CHAKO LAB to confirm this older payment.",
+        INVALID_PAYMENT: "We could not verify this transaction. Please contact CHAKO LAB.",
+        ORDER_CHANGED: "The order total has changed. Please contact CHAKO LAB before paying more.",
+        ORDER_ALREADY_PAID: "This order already has a complete payment. Please contact CHAKO LAB for confirmation.",
+        INVALID_REQUEST: "We could not verify this order. Please reopen checkout."
+      };
+      if (messages[data.status]) {
+        status.textContent = messages[data.status];
         return;
       }
-
-
-      /*
-        NOT_FOUND:
-        wait 4 seconds and check again
-      */
-
-      await new Promise(
-        resolve =>
-          setTimeout(
-            resolve,
-            checkInterval
-          )
-      );
+      if (data.ok !== true || data.status !== "NOT_FOUND") {
+        throw new Error("Payment verification failed");
+      }
+      await new Promise(resolve => setTimeout(resolve, 4000));
     }
-
-
-    /* =========================
-       90 SECOND TIMEOUT
-       ========================= */
-
-    status.textContent =
-      "⚠️ Payment not found yet. If you already paid, please wait a moment and tap “I Have Paid” again.";
-
+    status.textContent = previousBalance + "We haven't received a matching transaction yet. Check the Trx ID, wait a moment, and try again. If it still cannot be matched, contact CHAKO LAB with your receipt.";
   } catch (error) {
-
-    console.error(
-      "ABA payment verification error:",
-      error
-    );
-
-    status.textContent =
-      "⚠️ We could not check your payment right now. Please try again.";
-
+    console.error("Payment verification error:", error);
+    if (pendingPaymentOrder === order) {
+      status.textContent = previousBalance + "We could not check your payment right now. Please try again or contact CHAKO LAB with your receipt.";
+    }
   } finally {
-
     paymentCheckInProgress = false;
-
+    if (button) button.disabled = false;
   }
 };
 
