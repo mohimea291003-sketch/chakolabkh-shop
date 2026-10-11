@@ -8,7 +8,7 @@ const PAYMENT_CHECK_URL =
 
 let paymentCheckInProgress = false;
 
-const PAYMENT_API_VERSION = "chako-payment-proof-v2";
+const PAYMENT_API_VERSION = "chako-payment-proof-v3";
 
 function sendWebsiteOrderReceipt(order, extra = {}) {
   if (!order) return;
@@ -967,7 +967,7 @@ window.addPaymentProofs = async function(files) {
   if (!order || receiptPreparationInProgress || paymentCheckInProgress) return;
   const selected = Array.from(files || []);
   if (!selected.length) return;
-  if (order.paymentProofs.length + selected.length > 10) {
+  if (selected.length > 10) {
     status.textContent = "You can upload up to 10 receipts for this order. Please contact CHAKO LAB if you need help.";
     input.value = "";
     return;
@@ -980,7 +980,12 @@ window.addPaymentProofs = async function(files) {
       status.textContent = "Reading your receipt...";
       const prepared = await PaymentProofReader.prepareImage(file);
       if (pendingPaymentOrder !== order) return;
-      if (order.paymentProofs.some(proof => proof.digest === prepared.digest)) {
+      const existing = order.paymentProofs.find(proof => proof.digest === prepared.digest);
+      if (!existing && order.paymentProofs.length >= 10) {
+        status.textContent = "You can upload up to 10 receipts for this order. Please contact CHAKO LAB if you need help.";
+        break;
+      }
+      if (existing && (existing.state !== "uploaded" || existing.details?.purchaseId)) {
         status.textContent = "This receipt is already selected. Add the receipt for your new payment.";
         continue;
       }
@@ -988,8 +993,12 @@ window.addPaymentProofs = async function(files) {
         if (pendingPaymentOrder === order) status.textContent = "Reading your receipt... " + progress + "%";
       });
       if (pendingPaymentOrder !== order) return;
-      order.paymentProofs.push({id: PaymentProofReader.randomId(), name: file.name,
-        ...prepared, details, state: "ready"});
+      if (existing) {
+        Object.assign(existing, prepared, {details, state: "ready"});
+      } else {
+        order.paymentProofs.push({id: PaymentProofReader.randomId(), name: file.name,
+          ...prepared, details, state: "ready"});
+      }
       renderPaymentProofs(order);
       status.textContent = "Receipt selected. Tap “I Have Paid” to upload and check your payment.";
     }
@@ -1011,7 +1020,8 @@ function showPaymentBalance(data, pending = false) {
   const extra = Number(data.overAmount);
   const receipt = data.receiptAmount == null ? null : Number(data.receiptAmount);
   const status = document.getElementById("paymentStatus");
-  const heading = pending ? "Receipt uploaded — payment check pending" :
+  const heading = pending ? data.status === "MANUAL_REVIEW" ?
+    "Receipt uploaded — shop review needed" : "Receipt uploaded — payment check pending" :
     extra > 0 ? "Payment is higher than the order total" : "Incomplete payment";
   let content = "<strong>" + heading + "</strong><div class=\"payment-balance\">" +
     "<span>Order total</span><strong>$" + total.toFixed(2) + "</strong>" +
@@ -1029,7 +1039,9 @@ function showPaymentBalance(data, pending = false) {
   }
   content += "</div>";
   if (pending) {
-    content += "The receipt amount is awaiting bank confirmation. CHAKO LAB has your proof and can review it. Please wait for confirmation before paying again.";
+    content += data.status === "MANUAL_REVIEW" ?
+      "CHAKO LAB needs to match your receipt with the bank record. Please contact the shop for confirmation. Please wait for confirmation before paying again." :
+      "The receipt amount is awaiting bank confirmation. CHAKO LAB has your proof and can review it. Please wait for confirmation before paying again.";
   } else if (extra > 0) {
     content += "Please contact CHAKO LAB to arrange the extra amount.";
   } else {

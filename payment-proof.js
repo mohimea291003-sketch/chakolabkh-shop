@@ -12,6 +12,9 @@
     const refs = [...text.matchAll(/\b(?:trx\.?\s*(?:id|no\.?)|transaction\s*(?:id|no\.?|number)|reference\s*(?:id|no\.?|number))\s*[:#.-]?\s*(\d(?:[ \t]*\d){5,39})(?!\d)/gi)]
       .map(match => match[1].replace(/[ \t]/g, ""));
     const uniqueRefs = [...new Set(refs)];
+    const purchases = [...text.matchAll(/\bpurchase\s*(?:#|id|no\.?|number)\s*[:#.-]?\s*(\d(?:[ \t]*\d){5,39})(?!\d)/gi)]
+      .map(match => match[1].replace(/[ \t]/g, ""));
+    const uniquePurchases = [...new Set(purchases)];
     const apv = text.match(/\bAPV\s*[:#.-]?\s*(\d{4,12})\b/i)?.[1] || "";
     const currency = /(?:\$|\bUSD\b)/i.test(text);
     const amountsOnLine = line => [...line.matchAll(/(?:\$|\bUSD\s*)\s*([\d,]+(?:\.\d{1,2})?)\b|\b([\d,]+(?:\.\d{1,2})?)\s*USD\b/gi)]
@@ -27,12 +30,16 @@
     const values = [...new Set(labelled.length ? labelled : all)];
     const amount = currency && values.length === 1 ? values[0] : null;
     const unsuccessful = /\b(?:failed|declined|cancelled|canceled|unsuccessful|pending|scheduled)\b/i.test(text);
+    const ambiguous = uniqueRefs.length > 1 || uniquePurchases.length > 1;
+    const noReference = !uniqueRefs.length && !uniquePurchases.length;
     return {
       trxId: uniqueRefs.length === 1 ? uniqueRefs[0] : "",
+      purchaseId: uniquePurchases.length === 1 ? uniquePurchases[0] : "",
       apv, amount,
-      needsReview: unsuccessful || uniqueRefs.length !== 1,
+      needsReview: unsuccessful || ambiguous || noReference,
       reason: unsuccessful ? "Receipt is not marked as a completed payment" :
-        uniqueRefs.length !== 1 ? "A single transaction reference could not be read" : ""
+        ambiguous ? "More than one reference was read for the same receipt field" :
+        noReference ? "A transaction or purchase reference could not be read" : ""
     };
   }
 
@@ -115,7 +122,7 @@
       return parseReceiptText(result.data.text);
     } catch (error) {
       // A slow/offline reader must not prevent the shop from receiving proof.
-      return {trxId: "", apv: "", amount: null, needsReview: true,
+      return {trxId: "", purchaseId: "", apv: "", amount: null, needsReview: true,
         reason: "Automatic receipt reading unavailable; staff review requested"};
     } finally {
       if (worker) await worker.terminate().catch(() => {});
