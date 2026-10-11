@@ -8,6 +8,40 @@ const PAYMENT_CHECK_URL =
 
 let paymentCheckInProgress = false;
 
+function sendWebsiteOrderReceipt(order, extra = {}) {
+  if (!order) return;
+
+  const payload = {
+    ...order,
+    ...extra
+  };
+
+  fetch(
+    PAYMENT_CHECK_URL +
+      "?action=websiteOrder&_=" +
+      Date.now(),
+    {
+      method: "POST",
+
+      // Important for GitHub Pages → Apps Script
+      mode: "no-cors",
+
+      headers: {
+        "Content-Type":
+          "text/plain;charset=utf-8"
+      },
+
+      body: JSON.stringify(payload),
+
+      cache: "no-store"
+    }
+  ).catch(function(error) {
+    console.error(
+      "Website order Telegram error:",
+      error
+    );
+  });
+}
 /* =========================================
    CITY / PROVINCE → PAYMENT OPTIONS
    ========================================= */
@@ -778,6 +812,13 @@ window.openPaymentModal = function(order) {
     "Cash on Delivery"
   ) {
 
+    sendWebsiteOrderReceipt(
+  order,
+  {
+    paymentLabel: "Cash on Delivery",
+    paymentStatus: "🟠 COD / UNPAID"
+  }
+);
     confirmCODOrder(order);
 
     return;
@@ -938,6 +979,15 @@ window.customerPaid = async function() {
           );
         }
 
+        sendWebsiteOrderReceipt(
+  pendingPaymentOrder,
+  {
+    paymentLabel: "ABA / KHQR",
+    paymentStatus: "✅ PAID",
+    trxId: data.trxId || "",
+    apv: data.apv || ""
+  }
+);
         window.confirmCODOrder(
           pendingPaymentOrder,
           "ABA / KHQR",
