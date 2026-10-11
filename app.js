@@ -998,14 +998,12 @@ window.customerPaid = async function() {
 
         return;
       }
-    }   // previous payment-confirmed block ends here
-
-
     /* ==============================
        INCOMPLETE / PARTIAL PAYMENT
        ============================== */
 
     if (
+      data.ok === true &&
       data.status === "UNDERPAID"
     ) {
       const paid =
@@ -1034,6 +1032,7 @@ window.customerPaid = async function() {
        ============================== */
 
     if (
+      data.ok === true &&
       data.status === "OVERPAID"
     ) {
       const paid =
@@ -1205,3 +1204,4 @@ window.addEventListener(
     setTimeout(syncPaymentOptions, 100);
   }
 );
+
