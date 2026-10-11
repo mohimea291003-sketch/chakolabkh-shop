@@ -591,35 +591,19 @@
         grid-column: auto;
       }
     }
-    .payment-reference-field {
-      margin-bottom: 18px;
-      text-align: left;
-    }
-    .payment-reference-field label {
-      display: block;
-      font-size: 14px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-    .payment-reference-field textarea {
-      width: 100%;
-      padding: 12px;
-      border: 1px solid #d8d5d1;
-      border-radius: 10px;
-      background: white;
-      font-size: 16px;
-      resize: vertical;
-    }
-    .payment-reference-field textarea:focus {
-      outline: 2px solid #171717;
-      outline-offset: 2px;
-    }
-    .payment-reference-field p {
-      margin-top: 8px;
-      font-size: 12px;
-      color: #666;
-      line-height: 1.5;
-    }
+    .payment-proof-field { margin-bottom: 18px; text-align: left; }
+    .payment-proof-field > label { display: block; font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+    .payment-proof-field input { width: 100%; padding: 14px; border: 1px dashed #b7b1a8; border-radius: 12px; background: #faf9f6; font-size: 14px; }
+    .payment-proof-field input::file-selector-button { background: #171717; color: white; border: 0; border-radius: 8px; padding: 10px 12px; margin-right: 10px; cursor: pointer; }
+    .payment-proof-field p { margin-top: 8px; font-size: 12px; color: #666; line-height: 1.5; }
+    .payment-proof-item { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid #e5e1da; border-radius: 10px; }
+    .payment-proof-item img { width: 44px; height: 60px; object-fit: contain; border-radius: 4px; background: #f6f4ef; }
+    .payment-proof-item > div { flex: 1; min-width: 0; }
+    .payment-proof-item strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
+    .payment-proof-item span { display: block; font-size: 11px; color: #666; margin-top: 4px; }
+    .payment-proof-remove { background: none; border: 0; color: #555; font-size: 12px; text-decoration: underline; cursor: pointer; }
+    .payment-balance { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; background: #f8f6f1; padding: 16px; border-radius: 12px; margin: 16px 0; text-align: left; font-size: 14px; }
+    .payment-balance strong { text-align: right; }
     .paid-button:disabled {
       opacity: 0.65;
       cursor: wait;
@@ -936,24 +920,25 @@
   >
 
   <p class="payment-note">
-    After paying, enter the Trx ID from your receipt and tap “I Have Paid”.
+    After paying, upload your payment receipt and tap “I Have Paid”.
   </p>
 
-  <div class="payment-reference-field">
-    <label for="paymentTransactionIds">ABA transaction ID (Trx ID)</label>
-    <textarea
-      id="paymentTransactionIds"
-      rows="2"
-      maxlength="420"
-      autocomplete="off"
-      spellcheck="false"
-      aria-describedby="paymentReferenceHelp"
-      placeholder="Enter your transaction ID"
-    ></textarea>
-    <p id="paymentReferenceHelp">
-      If you pay in two parts, enter both IDs separated by a comma.
-      If your receipt has no matching Trx ID, contact CHAKO LAB for help.
+  <div class="payment-proof-field">
+    <label for="paymentProofs">Upload payment proof</label>
+    <input
+      id="paymentProofs"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      multiple
+      aria-describedby="paymentProofHelp"
+      onchange="addPaymentProofs(this.files)"
+    >
+    <p id="paymentProofHelp">
+      Choose a clear receipt screenshot or photo (JPG, PNG, or WebP, up to 10 MB).
+      If you pay in two parts, add the receipt for each payment.
+      Your receipts are sent to CHAKO LAB to verify your payment.
     </p>
+    <div id="paymentProofList" aria-live="polite"></div>
   </div>
 
   <button
@@ -1687,7 +1672,8 @@
 
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVcW_ktDPKn1bmSlbz3dJXs3rXA4nqWl0&v=weekly&language=en&region=KH"></script>
 
-<script src="app.js?v=17"></script>
+<script src="payment-proof.js?v=1"></script>
+<script src="app.js?v=18"></script>
 
 </body>
 </html>
