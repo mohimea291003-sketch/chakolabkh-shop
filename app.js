@@ -998,7 +998,62 @@ window.customerPaid = async function() {
 
         return;
       }
+    }   // previous payment-confirmed block ends here
 
+
+    /* ==============================
+       INCOMPLETE / PARTIAL PAYMENT
+       ============================== */
+
+    if (
+      data.status === "UNDERPAID"
+    ) {
+      const paid =
+        Number(data.paidAmount || 0).toFixed(2);
+
+      const remaining =
+        Number(data.remainingAmount || 0).toFixed(2);
+
+      const total =
+        Number(data.orderTotal || amount).toFixed(2);
+
+      status.innerHTML =
+        "⚠️ <strong>Incomplete payment</strong><br><br>" +
+        "We received: <strong>$" + paid + "</strong><br>" +
+        "Order total: <strong>$" + total + "</strong><br>" +
+        "Remaining to pay: <strong>$" + remaining + "</strong><br><br>" +
+        "Please pay the remaining <strong>$" + remaining +
+        "</strong>, then tap “I Have Paid” again.";
+
+      return;
+    }
+
+
+    /* ==============================
+       OVERPAYMENT
+       ============================== */
+
+    if (
+      data.status === "OVERPAID"
+    ) {
+      const paid =
+        Number(data.paidAmount || 0).toFixed(2);
+
+      const total =
+        Number(data.orderTotal || amount).toFixed(2);
+
+      const extra =
+        Number(data.overAmount || 0).toFixed(2);
+
+      status.innerHTML =
+        "⚠️ <strong>Payment amount is higher than the order total</strong><br><br>" +
+        "We detected: <strong>$" + paid + "</strong><br>" +
+        "Order total: <strong>$" + total + "</strong><br>" +
+        "Extra amount: <strong>$" + extra + "</strong><br><br>" +
+        "Please contact CHAKO LAB for assistance.";
+
+      return;
+    }
 
       /* =========================
          SAME-AMOUNT CONFLICT
