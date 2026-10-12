@@ -941,12 +941,13 @@ function renderPaymentProofs(order = pendingPaymentOrder) {
     const name = document.createElement("strong");
     name.textContent = proof.name;
     const detail = document.createElement("span");
-    detail.textContent = proof.state === "uploaded" ? "Uploaded to CHAKO LAB" :
+    detail.textContent = proof.state === "rejected" ? "Receipt rejected · contact CHAKO LAB" :
+      proof.state === "uploaded" ? "Uploaded to CHAKO LAB · awaiting approval" :
       proof.details?.amount != null ? "Receipt shows $" + Number(proof.details.amount).toFixed(2) + " · ready to upload" :
       "Ready to upload · shop can review this receipt";
     description.append(name, detail);
     item.appendChild(description);
-    if (proof.state === "ready") {
+    if (proof.state === "ready" || proof.state === "rejected") {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "payment-proof-remove";
@@ -955,6 +956,7 @@ function renderPaymentProofs(order = pendingPaymentOrder) {
       remove.addEventListener("click", () => {
         if (paymentCheckInProgress || receiptPreparationInProgress) return;
         order.paymentProofs = order.paymentProofs.filter(saved => saved !== proof);
+        rememberPaymentOrder(order);
         renderPaymentProofs(order);
       });
       item.appendChild(remove);
@@ -1122,6 +1124,21 @@ window.customerPaid = async function() {
         status.textContent = "Uploading your receipt to CHAKO LAB...";
         await new Promise(resolve => setTimeout(resolve, 3000));
         continue;
+      }
+      if (["RECEIPT_REUSED", "RECEIPT_REJECTED"].includes(data.status)) {
+        const ids = data.rejectedProofIds;
+        if (!Array.isArray(ids) || !ids.length || ids.some(id =>
+          !order.paymentProofs.some(proof => proof.id === id))) throw new Error("Invalid receipt rejection");
+        order.paymentProofs.filter(proof => ids.includes(proof.id)).forEach(proof => {
+          proof.state = "rejected";
+          delete proof.dataUrl;
+        });
+        rememberPaymentOrder(order);
+        renderPaymentProofs(order);
+        status.textContent = data.status === "RECEIPT_REUSED" ?
+          "This receipt was already submitted for another order. It cannot approve this order. Please contact CHAKO LAB." :
+          "CHAKO LAB could not approve this receipt. Please contact the shop before paying again.";
+        return;
       }
       if (data.status === "UPLOAD_FAILED") {
         order.paymentProofs.filter(proof => proof.state === "submitted")
