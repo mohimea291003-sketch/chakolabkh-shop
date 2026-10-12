@@ -8,7 +8,8 @@ const PAYMENT_CHECK_URL =
 
 let paymentCheckInProgress = false;
 
-const PAYMENT_API_VERSION = "chako-payment-proof-v3";
+const PAYMENT_API_VERSION = "chako-payment-proof-v4";
+const PAYMENT_APPROVAL_POLICY = "staff-reviewed-v1";
 
 function sendWebsiteOrderReceipt(order, extra = {}) {
   if (!order) return;
@@ -918,6 +919,9 @@ function restorePaymentOrder(order) {
   order.websiteOrderId ||= "CHAKO-WEB-" + Date.now() + "-" + PaymentProofReader.randomId().slice(0, 16);
   order.proofAccessToken ||= PaymentProofReader.randomId();
   order.paymentProofs ||= [];
+  if (order.lastVerifiedPayment?.approvalPolicy !== PAYMENT_APPROVAL_POLICY) {
+    delete order.lastVerifiedPayment;
+  }
 }
 
 function renderPaymentProofs(order = pendingPaymentOrder) {
@@ -1020,28 +1024,23 @@ function showPaymentBalance(data, pending = false) {
   const extra = Number(data.overAmount);
   const receipt = data.receiptAmount == null ? null : Number(data.receiptAmount);
   const status = document.getElementById("paymentStatus");
-  const heading = pending ? data.status === "MANUAL_REVIEW" ?
-    "Receipt uploaded — shop review needed" : "Receipt uploaded — payment check pending" :
+  const heading = pending ? "Receipt uploaded — awaiting shop approval" :
     extra > 0 ? "Payment is higher than the order total" : "Incomplete payment";
   let content = "<strong>" + heading + "</strong><div class=\"payment-balance\">" +
     "<span>Order total</span><strong>$" + total.toFixed(2) + "</strong>" +
-    "<span>Paid (bank confirmed)</span><strong>" +
-    (paid > 0 ? "$" + paid.toFixed(2) : pending ? "Awaiting confirmation" : "$0.00") + "</strong>";
+    "<span>Payment approved by CHAKO LAB</span><strong>" +
+    (paid > 0 ? "$" + paid.toFixed(2) : pending ? "Awaiting approval" : "$0.00") + "</strong>";
   if (!pending || paid > 0) {
     content += "<span>Still to pay" + (pending ? " (before pending receipt)" : "") +
       "</span><strong>$" + remaining.toFixed(2) + "</strong>";
   }
   if (extra > 0) content += "<span>Extra paid</span><strong>$" + extra.toFixed(2) + "</strong>";
   if (pending && receipt != null) {
-    content += "<span>Uploaded receipts show</span><strong>$" + receipt.toFixed(2) + "</strong>";
-    if (paid === 0) content += "<span>Balance if confirmed</span><strong>$" +
-      Math.max(0, Math.round((total - receipt) * 100) / 100).toFixed(2) + "</strong>";
+    content += "<span>Uploaded receipts show (unverified)</span><strong>$" + receipt.toFixed(2) + "</strong>";
   }
   content += "</div>";
   if (pending) {
-    content += data.status === "MANUAL_REVIEW" ?
-      "CHAKO LAB needs to match your receipt with the bank record. Please contact the shop for confirmation. Please wait for confirmation before paying again." :
-      "The receipt amount is awaiting bank confirmation. CHAKO LAB has your proof and can review it. Please wait for confirmation before paying again.";
+    content += "CHAKO LAB will check the bank payment and confirm it belongs to this order. Uploading a receipt does not approve payment. Please wait for confirmation before paying again.";
   } else if (extra > 0) {
     content += "Please contact CHAKO LAB to arrange the extra amount.";
   } else {
@@ -1084,8 +1083,9 @@ window.customerPaid = async function() {
     if (!versionResponse.ok) throw new Error("Payment service unavailable");
     const version = await versionResponse.json();
     if (pendingPaymentOrder !== order) return;
-    if (version.ok !== true || version.apiVersion !== PAYMENT_API_VERSION) {
-      status.textContent = "Receipt uploads are being updated. Please contact CHAKO LAB with your receipt for confirmation.";
+    if (version.ok !== true || version.apiVersion !== PAYMENT_API_VERSION ||
+        version.approvalPolicy !== PAYMENT_APPROVAL_POLICY) {
+      status.textContent = "Payment checks are paused for an update. Please contact CHAKO LAB to verify your receipt.";
       return;
     }
     for (const proof of order.paymentProofs) {
@@ -1115,7 +1115,9 @@ window.customerPaid = async function() {
       if (!response.ok) throw new Error("Payment service unavailable");
       const data = await response.json();
       if (pendingPaymentOrder !== order) return;
-      if (data.apiVersion !== PAYMENT_API_VERSION) throw new Error("Payment service changed");
+      if (data.apiVersion !== PAYMENT_API_VERSION || data.approvalPolicy !== PAYMENT_APPROVAL_POLICY) {
+        throw new Error("Payment service changed");
+      }
       if (data.status === "PROCESSING" && data.ok === true) {
         status.textContent = "Uploading your receipt to CHAKO LAB...";
         await new Promise(resolve => setTimeout(resolve, 3000));
@@ -1145,7 +1147,8 @@ window.customerPaid = async function() {
         throw new Error("Invalid payment balance");
       }
       order.paymentProofs.forEach(proof => { proof.state = "uploaded"; delete proof.dataUrl; });
-      order.lastVerifiedPayment = {paidAmount: paid, remainingAmount: remaining};
+      order.lastVerifiedPayment = {paidAmount: paid, remainingAmount: remaining,
+        approvalPolicy: data.approvalPolicy};
       rememberPaymentOrder(order);
       renderPaymentProofs(order);
       latest = data;
