@@ -30,12 +30,27 @@
     const values = [...new Set(labelled.length ? labelled : all)];
     const amount = currency && values.length === 1 ? values[0] : null;
     const unsuccessful = /\b(?:failed|declined|cancelled|canceled|unsuccessful|pending|scheduled)\b/i.test(text);
+    const incompletePayment = /\b(?:payment|transaction|transfer)\s+(?:has\s+)?(?:failed|declined|cancelled|canceled|unsuccessful|pending|scheduled)\b|\bstatus\s*[:.-]?\s*(?:failed|declined|cancelled|canceled|unsuccessful|pending|scheduled)\b/i.test(text);
+    // Only read explicitly labelled recipient accounts. The sender's account,
+    // phone number, transaction references, and balances are not recipients.
+    const recipients = lines.flatMap((line, index) => {
+      const label = line.match(/\b(?:to\s+account|recipient\s+account|beneficiary\s+account)\b\s*[:.-]?\s*(.*)$/i);
+      if (!label) return [];
+      const following = lines.slice(index + 1, index + 3).find(value => value.trim());
+      const accountText = label[1].trim() || (following &&
+        !/\b(?:from\s+account|amount|trx|transaction|reference|purchase|date|fee|balance)\b/i.test(following) ? following : "");
+      return [...accountText.matchAll(/(?:^|[^\d])((?:\d[ \t-]*){8}\d)(?![ \t-]*\d)/g)]
+        .map(match => match[1].replace(/[ \t-]/g, ""));
+    });
+    const uniqueRecipients = [...new Set(recipients)];
     const ambiguous = uniqueRefs.length > 1 || uniquePurchases.length > 1;
     const noReference = !uniqueRefs.length && !uniquePurchases.length;
     return {
       trxId: uniqueRefs.length === 1 ? uniqueRefs[0] : "",
       purchaseId: uniquePurchases.length === 1 ? uniquePurchases[0] : "",
       apv, amount,
+      recipientAccount: uniqueRecipients.length === 1 ? uniqueRecipients[0] : "",
+      paymentState: incompletePayment ? "INCOMPLETE" : "UNKNOWN",
       needsReview: unsuccessful || ambiguous || noReference,
       reason: unsuccessful ? "Receipt is not marked as a completed payment" :
         ambiguous ? "More than one reference was read for the same receipt field" :

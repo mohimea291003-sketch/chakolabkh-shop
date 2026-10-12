@@ -8,7 +8,7 @@ const PAYMENT_CHECK_URL =
 
 let paymentCheckInProgress = false;
 
-const PAYMENT_API_VERSION = "chako-payment-proof-v4";
+const PAYMENT_API_VERSION = "chako-payment-proof-v5";
 const PAYMENT_APPROVAL_POLICY = "staff-reviewed-v1";
 
 function sendWebsiteOrderReceipt(order, extra = {}) {
@@ -19,7 +19,7 @@ function sendWebsiteOrderReceipt(order, extra = {}) {
     ...extra
   };
 
-  fetch(
+  return fetch(
     PAYMENT_CHECK_URL +
       "?action=websiteOrder&_=" +
       Date.now(),
@@ -942,7 +942,7 @@ function renderPaymentProofs(order = pendingPaymentOrder) {
     name.textContent = proof.name;
     const detail = document.createElement("span");
     detail.textContent = proof.state === "rejected" ? "Receipt rejected · contact CHAKO LAB" :
-      proof.state === "uploaded" ? "Uploaded to CHAKO LAB · awaiting approval" :
+      proof.state === "uploaded" ? "Sent for payment review · awaiting approval" :
       proof.details?.amount != null ? "Receipt shows $" + Number(proof.details.amount).toFixed(2) + " · ready to upload" :
       "Ready to upload · shop can review this receipt";
     description.append(name, detail);
@@ -1057,6 +1057,41 @@ function showPaymentBalance(data, pending = false) {
   }
 }
 
+async function confirmPaidOrderReceipt(order, extra, statusUrl) {
+  await sendWebsiteOrderReceipt(order, extra);
+  const started = Date.now();
+  while (Date.now() - started < 12000) {
+    if (pendingPaymentOrder !== order) return false;
+    try {
+      const response = await fetch(statusUrl + "&receiptCheck=" + Date.now(), {cache: "no-store"});
+      if (!response.ok) return false;
+      const data = await response.json();
+      if (data.apiVersion !== PAYMENT_API_VERSION || data.approvalPolicy !== PAYMENT_APPROVAL_POLICY ||
+          data.ok !== true || data.status !== "CONFIRMED" || Number(data.pendingProofs) !== 0 ||
+          Math.round(Number(data.orderTotal) * 100) !== Math.round(Number(order.total) * 100) ||
+          Math.round(Number(data.paidAmount) * 100) !== Math.round(Number(order.total) * 100)) return false;
+      if (data.orderReceiptSent === true) return true;
+    } catch (error) { return false; }
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  return false;
+}
+
+function paymentProofRejectionMessage(data) {
+  const messages = {
+    WRONG_RECIPIENT: "This receipt shows payment to a different account. CHAKO LAB's receiving account is 014416627. Please check your receipt and contact the shop before paying again.",
+    PAYMENT_INCOMPLETE: "This receipt shows a pending or unsuccessful payment. Please check its status in your bank app and upload the completed receipt. Do not pay again until you have checked.",
+    RECEIPT_MISMATCH: "The receipt amount or APV does not match the recorded bank payment. Please upload a clear receipt or contact CHAKO LAB. No payment has been approved from this receipt.",
+    PAYMENT_TOO_OLD: "This receipt refers to an older bank payment. Please contact CHAKO LAB to review it before paying again.",
+    PAYMENT_VOID: "The recorded bank payment is no longer active. Please contact CHAKO LAB to check it before paying again.",
+    MULTIPLE_MATCHES: "This receipt matches conflicting bank records. CHAKO LAB needs to review it. Please contact the shop before paying again.",
+    INVALID_PAYMENT: "The bank record could not be verified. Please contact CHAKO LAB before paying again.",
+    ORDER_CHANGED: "The payment was recorded for a different order total. Please contact CHAKO LAB before paying again."
+  };
+  if (data.status === "RECEIPT_REUSED") return "This receipt or bank payment was already used or submitted for another order. Please contact CHAKO LAB before paying again.";
+  return messages[data.rejectionReason] || "CHAKO LAB could not approve this receipt. Please contact the shop before paying again.";
+}
+
 window.customerPaid = async function() {
   const status = document.getElementById("paymentStatus");
   const button = document.getElementById("paidButton");
@@ -1135,9 +1170,7 @@ window.customerPaid = async function() {
         });
         rememberPaymentOrder(order);
         renderPaymentProofs(order);
-        status.textContent = data.status === "RECEIPT_REUSED" ?
-          "This receipt was already submitted for another order. It cannot approve this order. Please contact CHAKO LAB." :
-          "CHAKO LAB could not approve this receipt. Please contact the shop before paying again.";
+        status.textContent = paymentProofRejectionMessage(data);
         return;
       }
       if (data.status === "UPLOAD_FAILED") {
@@ -1170,11 +1203,17 @@ window.customerPaid = async function() {
       renderPaymentProofs(order);
       latest = data;
       if (data.status === "CONFIRMED") {
-        status.textContent = "Payment confirmed!";
+        status.textContent = "Payment approved. Confirming your order...";
         const trxId = /^[\d +]+$/.test(String(data.trxId || "")) ? data.trxId : "";
         const apv = /^[\d +]+$/.test(String(data.apv || "")) ? data.apv : "";
-        sendWebsiteOrderReceipt(order, {paymentLabel: "ABA / KHQR", paymentStatus: "✅ PAID", trxId, apv,
-          paymentProofCount: order.paymentProofs.length});
+        const receiptSent = await confirmPaidOrderReceipt(order,
+          {paymentLabel: "ABA / KHQR", paymentStatus: "✅ PAID", trxId, apv,
+          paymentProofCount: order.paymentProofs.length}, url);
+        if (pendingPaymentOrder !== order) return;
+        if (!receiptSent) {
+          status.textContent = "Your payment is approved, but the order confirmation has not been delivered yet. Please tap “I Have Paid” again to finish, or contact CHAKO LAB. Do not pay again.";
+          return;
+        }
         window.confirmCODOrder(order, "ABA / KHQR", "✅ Payment confirmed");
         pendingPaymentOrder = null;
         try { sessionStorage.removeItem(PAYMENT_SESSION_KEY); } catch (error) {}
