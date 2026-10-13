@@ -1824,3 +1824,7 @@ summary::-webkit-details-marker { display: none; }
   .header-actions { gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+.delivery-map-link {display:block;margin-top:10px;padding:12px 14px;background:#f3f3f3;color:#171717;border:1px solid #ddd;border-radius:10px;font-weight:700;text-align:center;text-decoration:none;}
+.delivery-address-hint {margin-top:8px;font-size:12px;color:#777;line-height:1.6;}
+#deliveryLocationButton:disabled {opacity:.65;cursor:wait;}

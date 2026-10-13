@@ -8,7 +8,7 @@
   <meta name="description" content="Explore CHAKO LAB tumblers in Cambodia: ceramic, stainless steel, Tritan and titanium. Personal engraving and delivery across Cambodia.">
   <meta name="theme-color" content="#000000">
 
-  <link rel="stylesheet" href="style.css?v=20261013">
+  <link rel="stylesheet" href="style.css?v=20261013-2">
   
 </head>
 
@@ -274,6 +274,7 @@
         <button
           type="button"
           class="checkout-btn"
+          id="deliveryLocationButton"
           style="margin-top:0;"
           onclick="getDeliveryLocation()"
         >
@@ -458,8 +459,19 @@
   const ORDER_API_URL = "";
 
 
-  let cart =
-    JSON.parse(localStorage.getItem("chakoCart")) || [];
+  function readSavedCart() {
+    try {
+      const saved = JSON.parse(localStorage.getItem("chakoCart") || "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved.filter(item => item && typeof item === "object" &&
+        products.some(product => product.id === Number(item.id)) &&
+        Number.isFinite(Number(item.price)) && Number(item.price) > 0 &&
+        Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0)
+        .map(item => ({...item, id: Number(item.id), price: Number(item.price), quantity: Number(item.quantity)}));
+    } catch (error) { return []; }
+  }
+
+  let cart = readSavedCart();
 
 
   const DELIVERY_FEE = 2;
@@ -855,6 +867,14 @@
 
         event.preventDefault();
 
+        if (!document.getElementById("customerLatitude").value ||
+            !document.getElementById("customerLongitude").value) {
+          alert("Please tap “Use My Current Location” before continuing your order.");
+          document.getElementById("codLocationGroup").scrollIntoView({behavior: "smooth", block: "center"});
+          document.getElementById("deliveryLocationButton")?.focus();
+          return;
+        }
+
 
         const orderNumber =
           createOrderNumber();
@@ -1009,7 +1029,7 @@
 
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 
 </body>
 </html>

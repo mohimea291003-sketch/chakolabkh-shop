@@ -148,7 +148,7 @@ window.updateLocationSection = function() {
     "Delivery Location *";
 
   description.textContent =
-    "Please share your current location and enter your house number and street in the delivery address below.";
+    "Share your current location to fill your delivery address automatically, then check your house number and street.";
 };
 
 
@@ -156,583 +156,108 @@ window.updateLocationSection = function() {
    GET DELIVERY LOCATION
    ========================================= */
 
-async function findNearbyLandmark(latitude, longitude) {
-  try {
-    const {
-      Place,
-      SearchNearbyRankPreference
-    } = await google.maps.importLibrary("places");
+// Address lookup runs in the shop's Apps Script, without a public Maps key.
+const DELIVERY_ADDRESS_API_VERSION = "chako-delivery-address-v1";
+let deliveryLocationBusy = false;
 
-    const { places } = await Place.searchNearby({
-      fields: [
-        "displayName",
-        "location",
-        "primaryType"
-      ],
-
-      locationRestriction: {
-        center: {
-          lat: latitude,
-          lng: longitude
-        },
-        radius: 800
-      },
-
-      maxResultCount: 10,
-
-      rankPreference:
-        SearchNearbyRankPreference.POPULARITY,
-
-      language: "en",
-      region: "KH"
-    });
-
-    if (!places || places.length === 0) {
-      return "";
+function formatDeliveryAddress(results) {
+  const isPlusCode = text => /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/i.test(String(text || "").trim());
+  const component = type => {
+    for (const result of results) {
+      const item = (result.address_components || []).find(value =>
+        Array.isArray(value.types) && value.types.includes(type));
+      const name = String(item?.long_name || "").trim();
+      if (name && !isPlusCode(name)) return name;
     }
-
-    const usablePlace =
-      places.find(place =>
-        place.displayName &&
-        place.displayName.trim() !== ""
-      );
-
-    if (!usablePlace) {
-      return "";
-    }
-
-    return usablePlace.displayName;
-
-  } catch (error) {
-    console.error(
-      "Nearby landmark search failed:",
-      error
-    );
-
     return "";
+  };
+  const street = component("route");
+  const premise = component("premise");
+  const pieces = [
+    street || premise, component("subpremise"),
+    component("administrative_area_level_3") || component("sublocality_level_2") || component("neighborhood"),
+    component("administrative_area_level_2") || component("sublocality_level_1"),
+    component("locality") || component("administrative_area_level_1"),
+    component("postal_code"), component("country")
+  ].filter(Boolean);
+  let address = Array.from(new Map(pieces.map(value => [value.toLowerCase(), value])).values()).join(", ");
+  if (!street) {
+    const preferred = results.find(result =>
+      result.types?.some(type => ["street_address", "route", "premise"].includes(type)) &&
+      result.formatted_address && !isPlusCode(result.formatted_address));
+    const fallback = preferred || results.find(result =>
+      result.formatted_address && !isPlusCode(result.formatted_address) && !result.types?.includes("plus_code"));
+    if (fallback) address = String(fallback.formatted_address);
+  }
+  if (!address) return {address: "", hasStreet: false};
+  const number = component("street_number");
+  const prefix = number ? "House No: " + number + ", " : "House No: [Please enter], ";
+  return {address: prefix + address + (street && premise ? " — " + premise : ""), hasStreet: !!street};
+}
+
+async function requestDeliveryAddress(latitude, longitude) {
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 15000) : null;
+  try {
+    const url = PAYMENT_CHECK_URL + "?action=deliveryAddress&latitude=" +
+      encodeURIComponent(latitude) + "&longitude=" + encodeURIComponent(longitude);
+    const response = await fetch(url, {cache: "no-store", ...(controller ? {signal: controller.signal} : {})});
+    if (!response.ok) throw new Error("Address lookup unavailable");
+    const data = await response.json();
+    if (!data.ok || data.addressApiVersion !== DELIVERY_ADDRESS_API_VERSION || !Array.isArray(data.results)) {
+      throw new Error("Address lookup unavailable");
+    }
+    return formatDeliveryAddress(data.results);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
   }
 }
+
 window.getDeliveryLocation = function() {
-  const status =
-    document.getElementById("deliveryLocationStatus");
-
-  const addressField =
-    document.getElementById("customerAddress");
-
-  const latitudeField =
-    document.getElementById("customerLatitude");
-
-  const longitudeField =
-    document.getElementById("customerLongitude");
-
+  const status = document.getElementById("deliveryLocationStatus");
+  const addressField = document.getElementById("customerAddress");
+  const button = document.getElementById("deliveryLocationButton");
+  if (deliveryLocationBusy) return;
   if (!navigator.geolocation) {
-    status.textContent =
-      "❌ Location is not supported on this device.";
+    status.textContent = "Location is not supported on this device.";
     return;
   }
-
-  status.textContent =
-    "📍 Getting your current location...";
-
-  navigator.geolocation.getCurrentPosition(
-
-    async function(position) {
-
-      const latitude =
-        position.coords.latitude;
-
-      const longitude =
-        position.coords.longitude;
-
-      if (latitudeField) {
-        latitudeField.value = latitude;
+  const originalAddress = addressField?.value || "";
+  deliveryLocationBusy = true;
+  if (button) button.disabled = true;
+  status.textContent = "📍 Getting your current location...";
+  const finish = () => { deliveryLocationBusy = false; if (button) button.disabled = false; };
+  const failed = () => { status.textContent = "Please allow location access and try again."; finish(); };
+  try {
+    navigator.geolocation.getCurrentPosition(async position => {
+      const latitude = Number(position.coords.latitude), longitude = Number(position.coords.longitude);
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+        failed(); return;
       }
-
-      if (longitudeField) {
-        longitudeField.value = longitude;
-      }
-
-      const mapLink =
-        "https://www.google.com/maps/search/?api=1&query=" +
-        latitude +
-        "," +
-        longitude;
-
-      status.textContent =
-        "📍 Location received. Finding your address...";
-
+      document.getElementById("customerLatitude").value = String(latitude);
+      document.getElementById("customerLongitude").value = String(longitude);
+      const mapLink = "https://www.google.com/maps/search/?api=1&query=" + latitude + "," + longitude;
+      status.textContent = "📍 Location received. Finding your address...";
+      let message = "Your exact map location is saved. Please enter your house number and street below.";
       try {
-
-        if (
-          !window.google ||
-          !google.maps ||
-          !google.maps.Geocoder
-        ) {
-          throw new Error(
-            "Google Maps API is not ready."
-          );
-        }
-
-        const geocoder =
-          new google.maps.Geocoder();
-
-        const response =
-          await geocoder.geocode({
-            location: {
-              lat: latitude,
-              lng: longitude
-            },
-            language: "en"
-          });
-
-        const results =
-          response.results || [];
-
-        /*
-          --------------------------------
-          HELPERS
-          --------------------------------
-        */
-
-        const looksLikePlusCode =
-          function(text) {
-
-            if (!text) return false;
-
-            return /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/i
-              .test(text.trim());
-          };
-
-
-        const getComponent =
-          function(type) {
-
-            for (const result of results) {
-
-              if (!result.address_components) {
-                continue;
-              }
-
-              const component =
-                result.address_components.find(
-                  item =>
-                    item.types.includes(type)
-                );
-
-              if (
-                component &&
-                component.long_name
-              ) {
-                return component.long_name;
-              }
-            }
-
-            return "";
-          };
-
-
-        /*
-          --------------------------------
-          GET ADDRESS COMPONENTS
-          --------------------------------
-        */
-
-        const streetNumber =
-          getComponent("street_number");
-
-        const route =
-          getComponent("route");
-
-        const premise =
-          getComponent("premise");
-
-        const subpremise =
-          getComponent("subpremise");
-
-        const neighborhood =
-          getComponent("neighborhood");
-
-        const sublocality2 =
-          getComponent("sublocality_level_2");
-
-        const sublocality1 =
-          getComponent("sublocality_level_1");
-
-        const district =
-          getComponent(
-            "administrative_area_level_2"
-          );
-
-        const commune =
-          getComponent(
-            "administrative_area_level_3"
-          );
-
-        const city =
-          getComponent("locality") ||
-          getComponent(
-            "administrative_area_level_1"
-          );
-
-        const postalCode =
-          getComponent("postal_code");
-
-        const country =
-          getComponent("country");
-
-
-        /*
-          --------------------------------
-          BUILD HUMAN-FRIENDLY ADDRESS
-          --------------------------------
-        */
-
-        const addressParts = [];
-
-        const addUnique =
-          function(value) {
-
-            if (!value) return;
-
-            if (looksLikePlusCode(value)) {
-              return;
-            }
-
-            const exists =
-              addressParts.some(
-                item =>
-                  item.toLowerCase() ===
-                  value.toLowerCase()
-              );
-
-            if (!exists) {
-              addressParts.push(value);
-            }
-          };
-
-
-        /*
-          Prefer:
-          House → Street → Sangkat/Commune
-          → Khan/District → City → Cambodia
-        */
-
-        let streetLine = "";
-
-        if (route) {
-  streetLine = route;
-}
-else if (
-  premise &&
-  !looksLikePlusCode(premise)
-) {
-  streetLine = premise;
-}
-
-        addUnique(streetLine);
-
-        addUnique(subpremise);
-
-        addUnique(
-          commune ||
-          sublocality2 ||
-          neighborhood
-        );
-
-        addUnique(
-          district ||
-          sublocality1
-        );
-
-        addUnique(city);
-
-        addUnique(postalCode);
-
-        addUnique(country);
-
-
-        /*
-          --------------------------------
-          FALLBACK:
-          LOOK THROUGH ALL GOOGLE RESULTS
-          --------------------------------
-        */
-
-        let finalAddress =
-          addressParts.join(", ");
-
-
-        /*
-          If Google has an actual route
-          result, prefer it over generic
-          city / plus-code results.
-        */
-
-        const routeResult =
-          results.find(result => {
-
-            const hasRouteType =
-              result.types &&
-              result.types.includes("route");
-
-            const readable =
-              result.formatted_address &&
-              !looksLikePlusCode(
-                result.formatted_address
-              );
-
-            return hasRouteType && readable;
-          });
-
-
-        const streetResult =
-          results.find(result => {
-
-            const isStreet =
-              result.types &&
-              result.types.includes(
-                "street_address"
-              );
-
-            const readable =
-              result.formatted_address &&
-              !looksLikePlusCode(
-                result.formatted_address
-              );
-
-            return isStreet && readable;
-          });
-
-
-        /*
-          If our constructed result
-          has no street, prefer Google's
-          street / route result.
-        */
-
-        if (!route) {
-
-          if (streetResult) {
-            finalAddress =
-              streetResult.formatted_address;
-          }
-          else if (routeResult) {
-            finalAddress =
-              routeResult.formatted_address;
-          }
-          else {
-
-            const readableResult =
-              results.find(result => {
-
-                if (
-                  !result.formatted_address
-                ) {
-                  return false;
-                }
-
-                if (
-                  looksLikePlusCode(
-                    result.formatted_address
-                  )
-                ) {
-                  return false;
-                }
-
-                if (
-                  result.types &&
-                  result.types.includes(
-                    "plus_code"
-                  )
-                ) {
-                  return false;
-                }
-
-                return true;
-              });
-
-            if (readableResult) {
-              finalAddress =
-                readableResult
-                  .formatted_address;
-            }
+        const found = await requestDeliveryAddress(latitude, longitude);
+        if (found.address && addressField) {
+          if (addressField.value === originalAddress) {
+            addressField.value = found.address;
+            message = "Address filled automatically. Please check your house number and street, and edit them if needed.";
+          } else {
+            message = "Your location is saved and your edited address was kept. Please check it before continuing.";
           }
         }
-
-
-        /*
-          --------------------------------
-          FILL DELIVERY ADDRESS
-          --------------------------------
-        */
-
-if (
-  addressField &&
-  finalAddress
-) {
-
-  const landmark =
-    await findNearbyLandmark(
-      latitude,
-      longitude
-    );
-
-  const houseNumber =
-    "House No: [Please enter], ";
-
-  if (landmark) {
-
-    addressField.value =
-      houseNumber +
-      finalAddress +
-" — " +
-landmark;
-
-  } else {
-
-    addressField.value =
-      houseNumber +
-      finalAddress;
-  }
-}
-
-        /*
-          --------------------------------
-          SUCCESS MESSAGE
-          --------------------------------
-        */
-
-        const foundStreet =
-          Boolean(route);
-
-        status.innerHTML = `
-          <div style="
-            margin-top:8px;
-          ">
-            ✅ Location received${
-              finalAddress
-                ? " and address filled automatically."
-                : "."
-            }
-          </div>
-
-          <a
-            href="${mapLink}"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="
-              display:block;
-              margin-top:10px;
-              padding:12px 14px;
-              background:#f3f3f3;
-              color:#171717;
-              border:1px solid #dddddd;
-              border-radius:10px;
-              font-weight:700;
-              text-align:center;
-              text-decoration:none;
-            "
-          >
-            📍 View My Location on Map
-          </a>
-
-          <div style="
-            margin-top:8px;
-            font-size:12px;
-            color:#777;
-          ">
-            ${
-              foundStreet
-                ? "Please check the delivery address and edit it if needed."
-                : "Google found your area but could not confirm the exact street. Please add your house or street details if needed."
-            }
-          </div>
-        `;
-
-
-        /*
-          Useful only for debugging.
-          Does not affect customer.
-        */
-
-        console.log(
-          "Google reverse geocoding results:",
-          results
-        );
-
-        console.log(
-          "Detected road:",
-          route
-        );
-
-        console.log(
-          "Final delivery address:",
-          finalAddress
-        );
-
+      } catch (error) {
+        // The map pin and a manually entered address still allow checkout.
+      } finally {
+        status.innerHTML = '<div>✅ Delivery location received.</div><a class="delivery-map-link" href="' + mapLink +
+          '" target="_blank" rel="noopener noreferrer">📍 View My Location on Map</a><p class="delivery-address-hint">' + message + '</p>';
+        finish();
       }
-
-      catch (error) {
-
-        console.error(
-          "Google address error:",
-          error
-        );
-
-        status.innerHTML = `
-          <div style="margin-top:8px;">
-            ✅ Delivery location received.
-          </div>
-
-          <a
-            href="${mapLink}"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="
-              display:block;
-              margin-top:10px;
-              padding:12px 14px;
-              background:#f3f3f3;
-              color:#171717;
-              border:1px solid #dddddd;
-              border-radius:10px;
-              font-weight:700;
-              text-align:center;
-              text-decoration:none;
-            "
-          >
-            📍 View My Location on Map
-          </a>
-
-          <div style="
-            margin-top:8px;
-            font-size:12px;
-            color:#777;
-          ">
-            Your exact map location is saved.
-            Please enter your house number and street in the delivery address below.
-          </div>
-        `;
-      }
-    },
-
-    function(error) {
-
-      console.error(
-        "Location error:",
-        error
-      );
-
-      status.textContent =
-        "❌ Please allow location access and try again.";
-    },
-
-    {
-      enableHighAccuracy: true,
-      timeout: 20000,
-      maximumAge: 0
-    }
-  );
+    }, failed, {enableHighAccuracy: true, timeout: 20000, maximumAge: 0});
+  } catch (error) { failed(); }
 };
 
 
@@ -886,7 +411,25 @@ const PAYMENT_SESSION_KEY = "chakoPendingReceiptPaymentV2";
 let receiptPreparationInProgress = false;
 
 function paymentCheckoutKey(order) {
-  return JSON.stringify([order.total, order.items, order.customer]);
+  // Images and a refreshed map pin do not change the purchase being paid for.
+  return JSON.stringify({version: 3, totalCents: Math.round(Number(order.total) * 100),
+    items: (order.items || []).map(item => [String(item.id),
+      Math.round(Number(item.price) * 100), Number(item.quantity),
+      String(item.selectedSize || ""), String(item.selectedColor || "")])
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
+    phone: String(order.customer?.phone || "").trim()});
+}
+
+function isSamePaymentCheckout(previous, order) {
+  const current = paymentCheckoutKey(order);
+  if (!previous) return false;
+  if (!previous.checkoutKey) return paymentCheckoutKey(previous) === current;
+  if (previous.checkoutKey === current) return true;
+  try {
+    const legacy = JSON.parse(previous.checkoutKey);
+    return Array.isArray(legacy) && legacy.length === 3 && Array.isArray(legacy[1]) &&
+      paymentCheckoutKey({total: legacy[0], items: legacy[1], customer: legacy[2]}) === current;
+  } catch (error) { return false; }
 }
 
 function rememberPaymentOrder(order) {
@@ -907,11 +450,10 @@ function restorePaymentOrder(order) {
   if (!previous) {
     try {
       const saved = JSON.parse(sessionStorage.getItem(PAYMENT_SESSION_KEY) || "null");
-      if (saved?.checkoutKey === paymentCheckoutKey(order)) previous = saved;
+      if (isSamePaymentCheckout(saved, order)) previous = saved;
     } catch (error) {}
   }
-  if (previous && (previous.checkoutKey === paymentCheckoutKey(order) ||
-      paymentCheckoutKey(previous) === paymentCheckoutKey(order))) {
+  if (isSamePaymentCheckout(previous, order)) {
     ["websiteOrderId", "orderNumber", "proofAccessToken", "paymentProofs", "lastVerifiedPayment"]
       .forEach(key => { if (previous[key]) order[key] = previous[key]; });
   }
