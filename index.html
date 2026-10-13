@@ -4,680 +4,133 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>CHAKO LAB | Online Shop</title>
-
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f7f7f7;
-      color: #202020;
-    }
-
-    button,
-    input,
-    textarea,
-    select {
-      font-family: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      background: rgba(255, 255, 255, 0.96);
-      border-bottom: 1px solid #e8e8e8;
-      backdrop-filter: blur(12px);
-    }
-
-    .header-inner {
-      max-width: 1200px;
-      margin: auto;
-      height: 72px;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .logo {
-      font-size: 23px;
-      font-weight: 800;
-      letter-spacing: 1px;
-    }
-
-    .logo span {
-      font-weight: 400;
-    }
-
-    .cart-button {
-      border: none;
-      background: #111;
-      color: white;
-      border-radius: 999px;
-      padding: 11px 17px;
-      font-size: 15px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .cart-count {
-      background: white;
-      color: #111;
-      min-width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    .hero {
-      background:
-        linear-gradient(135deg, #f3dce4, #f5eeee 48%, #e8e8e8);
-      padding: 75px 20px;
-    }
-
-    .hero-inner {
-      max-width: 1200px;
-      margin: auto;
-    }
-
-    .hero-small {
-      font-size: 13px;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      margin-bottom: 14px;
-    }
-
-    .hero h1 {
-      max-width: 700px;
-      font-size: clamp(40px, 7vw, 78px);
-      line-height: 0.98;
-      margin-bottom: 22px;
-    }
-
-    .hero p {
-      max-width: 570px;
-      line-height: 1.6;
-      color: #555;
-      font-size: 17px;
-    }
-
-    .hero-button {
-      display: inline-block;
-      margin-top: 28px;
-      padding: 14px 22px;
-      border-radius: 999px;
-      background: #111;
-      color: white;
-      text-decoration: none;
-      font-weight: bold;
-    }
-
-    main {
-      max-width: 1200px;
-      margin: auto;
-      padding: 55px 20px 80px;
-    }
-
-    .section-heading {
-      margin-bottom: 28px;
-    }
-
-    .section-heading h2 {
-      font-size: 32px;
-      margin-bottom: 7px;
-    }
-
-    .section-heading p {
-      color: #777;
-    }
-
-    .filters {
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding-bottom: 18px;
-      margin-bottom: 18px;
-    }
-
-    .filter-btn {
-      white-space: nowrap;
-      border: 1px solid #ddd;
-      background: white;
-      padding: 10px 16px;
-      border-radius: 999px;
-    }
-
-    .filter-btn.active {
-      background: #111;
-      color: white;
-      border-color: #111;
-    }
-
-    .products {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 22px;
-    }
-
-    .product-card {
-      background: white;
-      border-radius: 18px;
-      overflow: hidden;
-      border: 1px solid #ebebeb;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .product-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 10px 25px rgba(0,0,0,0.07);
-    }
-
-    .product-image {
-      height: 265px;
-      display: grid;
-      place-items: center;
-      background: linear-gradient(145deg, #fafafa, #eeeeee);
-      font-size: 90px;
-    }
-
-    .product-info {
-      padding: 18px;
-    }
-
-    .product-category {
-      color: #888;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      margin-bottom: 7px;
-    }
-
-    .product-name {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .product-price {
-      font-size: 17px;
-      font-weight: 700;
-      margin-bottom: 15px;
-    }
-
-    .add-btn {
-      width: 100%;
-      border: none;
-      background: #111;
-      color: white;
-      padding: 12px;
-      border-radius: 10px;
-      font-weight: bold;
-    }
-
-    .add-btn:hover {
-      opacity: 0.88;
-    }
-
-    .overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.45);
-      z-index: 100;
-      display: none;
-    }
-
-    .overlay.show {
-      display: block;
-    }
-
-    .cart-drawer {
-      position: fixed;
-      right: -460px;
-      top: 0;
-      width: min(430px, 100%);
-      height: 100vh;
-      z-index: 110;
-      background: white;
-      padding: 24px;
-      transition: right 0.3s ease;
-      overflow-y: auto;
-      box-shadow: -15px 0 35px rgba(0,0,0,0.12);
-    }
-
-    .cart-drawer.open {
-      right: 0;
-    }
-
-    .drawer-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 25px;
-    }
-
-    .drawer-header h2 {
-      font-size: 25px;
-    }
-
-    .close-btn {
-      border: none;
-      background: #eee;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      font-size: 18px;
-    }
-
-    .empty-cart {
-      text-align: center;
-      padding: 50px 15px;
-      color: #777;
-    }
-
-    .cart-item {
-      display: grid;
-      grid-template-columns: 60px 1fr;
-      gap: 13px;
-      padding: 15px 0;
-      border-bottom: 1px solid #eee;
-    }
-
-    .cart-thumb {
-      width: 60px;
-      height: 60px;
-      background: #f2f2f2;
-      border-radius: 12px;
-      display: grid;
-      place-items: center;
-      font-size: 30px;
-    }
-
-    .cart-item-name {
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-
-    .cart-item-price {
-      color: #666;
-      font-size: 14px;
-    }
-
-    .quantity-row {
-      margin-top: 9px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .qty-controls {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-    }
-
-    .qty-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 7px;
-      border: 1px solid #ddd;
-      background: white;
-    }
-
-    .remove-btn {
-      border: none;
-      background: none;
-      color: #cc3b3b;
-      font-size: 12px;
-    }
-
-    .cart-summary {
-      margin-top: 25px;
-      border-top: 1px solid #ddd;
-      padding-top: 18px;
-    }
-
-    .summary-line {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-    }
-
-    .summary-total {
-      font-size: 21px;
-      font-weight: 800;
-      margin-top: 14px;
-    }
-
-    .checkout-btn {
-      width: 100%;
-      border: none;
-      background: #111;
-      color: white;
-      padding: 15px;
-      border-radius: 12px;
-      font-weight: bold;
-      font-size: 16px;
-      margin-top: 18px;
-    }
-
-    .checkout-modal {
-      position: fixed;
-      z-index: 120;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%) scale(0.96);
-      width: min(620px, calc(100% - 30px));
-      max-height: 90vh;
-      overflow-y: auto;
-      background: white;
-      border-radius: 20px;
-      padding: 27px;
-      display: none;
-    }
-
-    .checkout-modal.show {
-      display: block;
-      transform: translate(-50%, -50%) scale(1);
-    }
-
-    .checkout-modal h2 {
-      margin-bottom: 6px;
-    }
-
-    .checkout-subtitle {
-      color: #777;
-      margin-bottom: 22px;
-    }
-
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
-
-    .form-group {
-      margin-bottom: 15px;
-    }
-
-    .form-group.full {
-      grid-column: 1 / -1;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 7px;
-      font-size: 14px;
-      font-weight: 700;
-    }
-
-    input,
-    textarea,
-    select {
-      width: 100%;
-      border: 1px solid #ddd;
-      background: white;
-      border-radius: 10px;
-      padding: 12px 13px;
-      font-size: 15px;
-      outline: none;
-    }
-
-    input:focus,
-    textarea:focus,
-    select:focus {
-      border-color: #111;
-    }
-
-    textarea {
-      min-height: 90px;
-      resize: vertical;
-    }
-
-    .checkout-order {
-      background: #f7f7f7;
-      border-radius: 14px;
-      padding: 16px;
-      margin: 8px 0 18px;
-    }
-
-    .checkout-order div {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-
-    .checkout-order div:last-child {
-      margin-bottom: 0;
-      font-size: 18px;
-      font-weight: bold;
-    }
-
-    .submit-order {
-      width: 100%;
-      border: none;
-      background: #111;
-      color: white;
-      padding: 15px;
-      border-radius: 12px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-
-    .success-box {
-      position: fixed;
-      z-index: 130;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      background: white;
-      border-radius: 20px;
-      padding: 35px;
-      width: min(470px, calc(100% - 30px));
-      text-align: center;
-      display: none;
-    }
-
-    .success-box.show {
-      display: block;
-    }
-
-    .success-icon {
-      width: 65px;
-      height: 65px;
-      margin: auto auto 18px;
-      background: #e8f7eb;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      font-size: 30px;
-    }
-
-    .success-box h2 {
-      margin-bottom: 10px;
-    }
-
-    .success-box p {
-      color: #666;
-      line-height: 1.6;
-    }
-
-    .success-box button {
-      border: none;
-      background: #111;
-      color: white;
-      padding: 12px 22px;
-      border-radius: 999px;
-      margin-top: 20px;
-    }
-
-    footer {
-      background: #111;
-      color: white;
-      text-align: center;
-      padding: 40px 20px;
-    }
-
-    footer p {
-      opacity: 0.7;
-      margin-top: 8px;
-      font-size: 14px;
-    }
-
-    @media (max-width: 900px) {
-      .products {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 600px) {
-      .header-inner {
-        height: 64px;
-      }
-
-      .hero {
-        padding: 55px 20px;
-      }
-
-      main {
-        padding-top: 38px;
-      }
-
-      .products {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .product-image {
-        height: 180px;
-        font-size: 62px;
-      }
-
-      .product-info {
-        padding: 13px;
-      }
-
-      .product-name {
-        font-size: 15px;
-      }
-
-      .product-price {
-        font-size: 15px;
-      }
-
-      .add-btn {
-        font-size: 13px;
-      }
-
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .form-group.full {
-        grid-column: auto;
-      }
-    }
-    .payment-proof-field { margin-bottom: 18px; text-align: left; }
-    .payment-proof-field > label { display: block; font-size: 15px; font-weight: 700; margin-bottom: 10px; }
-    .payment-proof-field input { width: 100%; padding: 14px; border: 1px dashed #b7b1a8; border-radius: 12px; background: #faf9f6; font-size: 14px; }
-    .payment-proof-field input::file-selector-button { background: #171717; color: white; border: 0; border-radius: 8px; padding: 10px 12px; margin-right: 10px; cursor: pointer; }
-    .payment-proof-field p { margin-top: 8px; font-size: 12px; color: #666; line-height: 1.5; }
-    .payment-proof-item { display: flex; gap: 10px; align-items: center; margin-top: 10px; padding: 10px; border: 1px solid #e5e1da; border-radius: 10px; }
-    .payment-proof-item img { width: 44px; height: 60px; object-fit: contain; border-radius: 4px; background: #f6f4ef; }
-    .payment-proof-item > div { flex: 1; min-width: 0; }
-    .payment-proof-item strong { display: block; font-size: 12px; overflow-wrap: anywhere; }
-    .payment-proof-item span { display: block; font-size: 11px; color: #666; margin-top: 4px; }
-    .payment-proof-remove { background: none; border: 0; color: #555; font-size: 12px; text-decoration: underline; cursor: pointer; }
-    .payment-balance { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; background: #f8f6f1; padding: 16px; border-radius: 12px; margin: 16px 0; text-align: left; font-size: 14px; }
-    .payment-balance strong { text-align: right; }
-    .paid-button:disabled {
-      opacity: 0.65;
-      cursor: wait;
-    }
-  </style>
-  
-  <link rel="stylesheet" href="style.css">
+  <title>CHAKO LAB Cambodia | Tumblers &amp; Personal Engraving</title>
+  <meta name="description" content="Explore CHAKO LAB tumblers in Cambodia: ceramic, stainless steel, Tritan and titanium. Personal engraving and delivery across Cambodia.">
+  <meta name="theme-color" content="#000000">
+
+  <link rel="stylesheet" href="style.css?v=20261013">
   
 </head>
 
 <body>
 
-<header>
+<a class="skip-link" href="#shop">Skip to collection</a>
+<div class="announcement" aria-label="Shop information">
+  <span>CHAKO LAB CAMBODIA</span><span aria-hidden="true">✦</span>
+  <span>PERSONAL ENGRAVING AVAILABLE</span><span aria-hidden="true">✦</span>
+  <span>DELIVERY ACROSS CAMBODIA</span>
+</div>
+<header class="site-header">
   <div class="header-inner">
-    <div class="logo">CHAKO <span>LAB</span></div>
-
-    <button class="cart-button" onclick="openCart()">
-      🛒 Cart
-      <span class="cart-count" id="cartCount">0</span>
-    </button>
+    <button id="menuToggle" class="header-icon menu-toggle" type="button" onclick="toggleStoreMenu()" aria-label="Open navigation" aria-controls="menuDrawer" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    <a class="logo" href="#" aria-label="CHAKO LAB Cambodia home"><img src="assets/chakolab-logo.png" width="180" height="52" alt="CHAKO LAB"><small>CAMBODIA</small></a>
+    <div class="header-actions">
+      <button class="header-icon" type="button" onclick="openStoreSearch()" aria-label="Search products"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7.5"/><path d="m16 16 5 5"/></svg></button>
+      <button class="header-icon cart-button" type="button" onclick="openCart()" aria-label="Open shopping cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18l-2 12H5L3 8Z M8 8l4-6 4 6"/></svg><span class="cart-count" id="cartCount">0</span></button>
+    </div>
   </div>
 </header>
 
-
-<section class="hero">
-  <div class="hero-inner">
-    <div class="hero-small">CHAKO LAB Cambodia</div>
-
-    <h1>Your everyday tumbler, made better.</h1>
-
-    <p>
-      Discover our tumbler collection for work, school, travel,
-      gifts and everyday life.
-    </p>
-
-    <a href="#shop" class="hero-button">
-      Shop Now
+<section class="hero" aria-label="Discover CHAKO LAB collections">
+  <div class="hero-slide active">
+    <a href="#shop" onclick="browseSeries('Split');return false" aria-label="Explore the Split Cup collection">
+      <picture><source media="(max-width: 699px)" srcset="https://chakolab.id/cdn/shop/files/shopee_banner_split_cup.jpg?v=1788754059&amp;width=900"><img src="https://chakolab.id/cdn/shop/files/Web_banner_split_cup.jpg?v=1788754038&amp;width=2200" alt="CHAKO LAB Split Cup collection" fetchpriority="high" width="2800" height="1000"></picture>
+      <span class="hero-cta">Explore the collection <span aria-hidden="true">↗</span></span>
     </a>
+  </div>
+  <div class="hero-slide" aria-hidden="true">
+    <a href="#shop" onclick="browseSeries('CarryGo');return false" aria-label="Explore CarryGo tumblers" tabindex="-1">
+      <picture><source media="(max-width: 699px)" srcset="https://chakolab.id/cdn/shop/files/WEBSITE_-_HP.png?v=1790130873&amp;width=900"><img src="https://chakolab.id/cdn/shop/files/WEBSITE_-_PC.png?v=1790130873&amp;width=2200" alt="CHAKO LAB CarryGo lifestyle collection" loading="lazy" width="2800" height="1000"></picture>
+      <span class="hero-cta">Find your everyday favorite <span aria-hidden="true">↗</span></span>
+    </a>
+  </div>
+  <div class="hero-slide" aria-hidden="true">
+    <a href="#shop" onclick="filterProducts('Titanium');return false" aria-label="Explore titanium tumblers" tabindex="-1">
+      <picture><source media="(max-width: 699px)" srcset="https://chakolab.id/cdn/shop/files/website_-_banner_hp-02.jpg?v=1784096766&amp;width=900"><img src="https://chakolab.id/cdn/shop/files/banner_titanium_banner_titanium_revisi.jpg?v=1784096837&amp;width=2200" alt="CHAKO LAB titanium collection" loading="lazy" width="2800" height="1000"></picture>
+      <span class="hero-cta">Discover the collection <span aria-hidden="true">↗</span></span>
+    </a>
+  </div>
+  <div class="hero-controls">
+    <button id="heroPrevious" type="button" aria-label="Previous banner">‹</button>
+    <button class="hero-dot active" type="button" onclick="showHeroSlide(0)" aria-label="Show Split Cup banner" aria-pressed="true">1</button>
+    <button class="hero-dot" type="button" onclick="showHeroSlide(1)" aria-label="Show CarryGo banner" aria-pressed="false">2</button>
+    <button class="hero-dot" type="button" onclick="showHeroSlide(2)" aria-label="Show titanium banner" aria-pressed="false">3</button>
+    <button id="heroNext" type="button" aria-label="Next banner">›</button>
   </div>
 </section>
 
+<main class="store-main">
+  <section class="collection-section" id="shop" aria-labelledby="collectionTitle">
+    <p class="section-eyebrow">GOOD TASTE. EVERY DAY.</p>
+    <div class="section-heading"><div><h1 id="collectionTitle">THE COLLECTION</h1><p>Your favorite companion for work, weekends, and everything between.</p></div><button class="view-all" type="button" onclick="resetCatalog()">View all <span aria-hidden="true">↗</span></button></div>
+    <div class="catalog-toolbar">
+      <div class="filters" aria-label="Filter by material">
+        <button type="button" class="filter-btn active" data-material="All" onclick="filterProducts('All',this)" aria-pressed="true">All models</button>
+        <button type="button" class="filter-btn" data-material="Ceramic" onclick="filterProducts('Ceramic',this)" aria-pressed="false">Ceramic</button>
+        <button type="button" class="filter-btn" data-material="Stainless" onclick="filterProducts('Stainless',this)" aria-pressed="false">Stainless steel</button>
+        <button type="button" class="filter-btn" data-material="Tritan" onclick="filterProducts('Tritan',this)" aria-pressed="false">Tritan</button>
+        <button type="button" class="filter-btn" data-material="Titanium" onclick="filterProducts('Titanium',this)" aria-pressed="false">Titanium</button>
+      </div>
+      <label class="catalog-sort" for="catalogSort"><span class="sr-only">Sort products</span><select id="catalogSort"><option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option></select></label>
+    </div>
+    <div class="catalog-selection" id="catalogSelection" hidden><span id="catalogSelectionLabel"></span><button type="button" onclick="resetCatalog()" aria-label="Clear collection filter">Clear ×</button></div>
+    <div class="products product-rail" id="productList" aria-live="polite"></div>
+    <div class="rail-footer"><span id="catalogCount">6 models</span><div class="rail-arrows"><button type="button" aria-label="Scroll collection left" onclick="scrollProductRow('productList',-1)">←</button><button type="button" aria-label="Scroll collection right" onclick="scrollProductRow('productList',1)">→</button></div></div>
+  </section>
 
-<main id="shop">
+  <section class="collection-section" id="featured" aria-labelledby="featuredTitle">
+    <div class="section-heading"><div><h2 id="featuredTitle">FEATURED FAVORITES</h2><p>A few good places to start your collection.</p></div><a class="view-all" href="#shop">View all <span aria-hidden="true">↗</span></a></div>
+    <div class="products product-rail" id="featuredProducts"></div>
+    <div class="rail-footer"><span>Made to go wherever you do.</span><div class="rail-arrows"><button type="button" aria-label="Scroll featured products left" onclick="scrollProductRow('featuredProducts',-1)">←</button><button type="button" aria-label="Scroll featured products right" onclick="scrollProductRow('featuredProducts',1)">→</button></div></div>
+  </section>
 
-  <div class="section-heading">
-    <h2>Shop Collection</h2>
-    <p>Choose your favorite CHAKO LAB tumbler.</p>
-  </div>
+  <section class="collection-section" id="offersSection" hidden aria-labelledby="offersTitle">
+    <div class="section-heading"><div><h2 id="offersTitle">SPECIAL OFFERS</h2><p>Explore the current offers in our collection.</p></div><a class="view-all" href="#shop">View all <span aria-hidden="true">↗</span></a></div>
+    <div class="products product-rail" id="offerProducts"></div>
+  </section>
 
-  <div class="filters">
-    <button class="filter-btn active" onclick="filterProducts('All', this)">
-      All
-    </button>
-
-    <button class="filter-btn" onclick="filterProducts('Ceramic', this)">
-      Ceramic
-    </button>
-
-    <button class="filter-btn" onclick="filterProducts('Stainless', this)">
-      Stainless Steel
-    </button>
-
-    <button class="filter-btn" onclick="filterProducts('Tritan', this)">
-      Tritan
-    </button>
-
-    <button class="filter-btn" onclick="filterProducts('Titanium', this)">
-      Titanium
-    </button>
-  </div>
-
-  <div class="products" id="productList"></div>
-
+  <section class="materials-section" id="materials" aria-labelledby="materialsTitle">
+    <div class="section-heading"><div><h2 id="materialsTitle">FIND YOUR MATERIAL</h2><p>Different materials. The same CHAKO LAB spirit.</p></div></div>
+    <div class="material-grid">
+      <button type="button" class="material-tile ceramic-tile" onclick="filterProducts('Ceramic')"><span class="material-number">01</span><span class="material-label">CERAMIC <span aria-hidden="true">↗</span></span></button>
+      <button type="button" class="material-tile stainless-tile" onclick="filterProducts('Stainless')"><span class="material-number">02</span><span class="material-label">STAINLESS STEEL <span aria-hidden="true">↗</span></span></button>
+      <button type="button" class="material-tile tritan-tile" onclick="filterProducts('Tritan')"><span class="material-number">03</span><span class="material-label">TRITAN <span aria-hidden="true">↗</span></span></button>
+      <button type="button" class="material-tile titanium-tile" onclick="filterProducts('Titanium')"><span class="material-number">04</span><span class="material-label">TITANIUM <span aria-hidden="true">↗</span></span></button>
+    </div>
+  </section>
 </main>
+
+<section class="engraving-section" id="engraving">
+  <div class="engraving-image"><img src="https://chakolab.id/cdn/shop/files/engrave.jpg?v=1778632818&amp;width=1200" alt="Personal name engraving on a CHAKO LAB tumbler" loading="lazy"></div>
+  <div class="engraving-copy"><p class="section-eyebrow">A LITTLE MORE YOU.</p><h2>MAKE IT<br><em>PERSONAL.</em></h2><p>A name. A message. Your company logo.<br>Turn an everyday favorite into a thoughtful gift.</p><p class="engraving-note">Add your engraving request in the Order Note at checkout. Our team will review the details with your order.</p><a class="dark-pill" href="#shop">Find your tumbler <span aria-hidden="true">↗</span></a></div>
+</section>
+
+<section class="order-help" id="how-to-order" aria-labelledby="helpTitle">
+  <div><p class="section-eyebrow">LET'S MAKE IT EASY.</p><h2 id="helpTitle">A GOOD DAY<br>STARTS WITH<br>A GOOD CUP.</h2></div>
+  <div class="help-accordions">
+    <details><summary>How do I place an order?<span aria-hidden="true">+</span></summary><p>Choose a model, add it to your cart, and continue to checkout. Enter your name, phone number, city, and delivery location. Add any engraving request in the Order Note.</p></details>
+    <details id="delivery-details"><summary>Delivery and payment<span aria-hidden="true">+</span></summary><p>Your delivery fee appears at checkout. ABA / KHQR is available for all locations. Cash on Delivery is available for Phnom Penh orders.</p></details>
+    <details><summary>What happens after I pay?<span aria-hidden="true">+</span></summary><p>Upload your payment receipt and tap “I Have Paid.” If you pay in parts, upload every receipt. CHAKO LAB checks the received payment before approving your order. Once approved, tap “I Have Paid” again to complete your order.</p></details>
+    <details><summary>Can I personalize my tumbler?<span aria-hidden="true">+</span></summary><p>Yes. Add the name, message, or logo request in the Order Note at checkout so our team can review your engraving details.</p></details>
+  </div>
+</section>
+
+<div id="storeBackdrop" class="store-backdrop" onclick="closeStorePanels()"></div>
+<aside id="menuDrawer" class="store-panel menu-drawer" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+  <div class="store-panel-heading"><h2 id="menuTitle">EXPLORE CHAKO LAB</h2><button type="button" class="close-btn" onclick="closeStorePanels()" aria-label="Close navigation">×</button></div>
+  <nav aria-label="Main navigation"><a href="#shop" onclick="closeStorePanels(false)">Shop all models <span>↗</span></a><a href="#featured" onclick="closeStorePanels(false)">Featured favorites <span>↗</span></a><details open><summary>Shop by series</summary><button type="button" onclick="browseSeries('KADA')">KADA</button><button type="button" onclick="browseSeries('CarryGo')">CarryGo</button><button type="button" onclick="browseSeries('Split')">Split Cup</button><button type="button" onclick="browseSeries('Bawang')">Bawang</button></details><details><summary>Shop by material</summary><button type="button" onclick="filterProducts('Ceramic')">Ceramic</button><button type="button" onclick="filterProducts('Stainless')">Stainless steel</button><button type="button" onclick="filterProducts('Tritan')">Tritan</button><button type="button" onclick="filterProducts('Titanium')">Titanium</button></details><a href="#engraving" onclick="closeStorePanels(false)">Personal engraving <span>↗</span></a><a href="#how-to-order" onclick="closeStorePanels(false)">How to order <span>↗</span></a></nav>
+  <p class="menu-country">CHAKO LAB · CAMBODIA</p>
+</aside>
+<section id="searchPanel" class="store-panel search-panel" role="dialog" aria-modal="true" aria-labelledby="searchTitle">
+  <div class="store-panel-heading"><h2 id="searchTitle">FIND YOUR FAVORITE</h2><button type="button" class="close-btn" onclick="closeStorePanels()" aria-label="Close search">×</button></div>
+  <form id="searchForm"><label class="sr-only" for="searchInput">Search model or material</label><input id="searchInput" type="search" placeholder="Search a model or material…" autocomplete="off"><button class="dark-pill" type="submit">Search <span aria-hidden="true">↗</span></button></form>
+  <p class="search-hint">Explore our models</p><div id="searchResults" aria-live="polite"></div>
+</section>
+<section id="productDialog" class="store-panel product-dialog" role="dialog" aria-modal="true" aria-labelledby="productDialogTitle">
+  <button class="close-btn product-dialog-close" type="button" onclick="closeStorePanels()" aria-label="Close product details">×</button>
+  <div class="product-gallery"><div class="gallery-stage"><img id="galleryImage" alt="" decoding="async"><div id="galleryPlaceholder" class="gallery-placeholder" hidden></div><button id="galleryPrevious" class="gallery-arrow gallery-arrow-left" type="button" onclick="stepProductPhoto(-1)" aria-label="Previous product photo">‹</button><button id="galleryNext" class="gallery-arrow gallery-arrow-right" type="button" onclick="stepProductPhoto(1)" aria-label="Next product photo">›</button><span id="galleryCount" class="gallery-count" aria-live="polite"></span></div><div id="galleryThumbnails" class="gallery-thumbnails" aria-label="Product photos"></div></div>
+  <div class="product-details"><p id="productDialogCollection" class="section-eyebrow"></p><h2 id="productDialogTitle"></h2><p id="productDialogPrice" class="detail-price"></p><p id="productDialogDescription" class="detail-description"></p><dl class="product-specs"><div><dt>Material</dt><dd id="productMaterial"></dd></div><div><dt>Size</dt><dd id="productSizes"></dd></div></dl><div class="detail-quantity"><label for="productQuantity">Quantity</label><div><button type="button" onclick="adjustProductQuantity(-1)" aria-label="Decrease quantity">−</button><input id="productQuantity" type="number" min="1" max="20" value="1" inputmode="numeric"><button type="button" onclick="adjustProductQuantity(1)" aria-label="Increase quantity">+</button></div></div><button id="productDialogAdd" class="dark-pill detail-add" type="button" onclick="addGalleryProduct()">Add to cart</button><p class="detail-note">Add your preferred colour and any name or logo engraving request in the Order Note at checkout.</p></div>
+</section>
 
 
 <div class="overlay" id="overlay" onclick="closeEverything()"></div>
@@ -976,85 +429,23 @@
 </div>
 
 
-<footer>
-
-  <strong>CHAKO LAB</strong>
-
-  <p>
-    Online Shop · Cambodia
-  </p>
-
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div><div class="footer-brand"><img src="assets/chakolab-logo.png" width="180" height="52" alt="CHAKO LAB" loading="lazy"></div><p>Cambodia · Good taste. Every day.<br>Tumblers for your everyday life, with a personal touch.</p></div>
+    <div><h3>EXPLORE THE COLLECTION</h3><div class="footer-links"><button type="button" onclick="browseSeries('KADA')">KADA</button><button type="button" onclick="browseSeries('CarryGo')">CarryGo</button><button type="button" onclick="browseSeries('Split')">Split Cup</button><button type="button" onclick="browseSeries('Bawang')">Bawang Titanium</button></div></div>
+    <div><h3>HERE TO HELP</h3><div class="footer-links"><a href="#how-to-order">How to order</a><a href="#delivery-details">Delivery &amp; payment</a><a href="#engraving">Personal engraving</a><a href="#shop">Shop all models</a></div><p>ABA / KHQR<br>Cash on Delivery in Phnom Penh</p></div>
+  </div>
+  <div class="footer-bottom"><span>© 2026 CHAKO LAB Cambodia</span><span>All prices in USD · Delivery fee shown at checkout</span></div>
 </footer>
 
 
+<script src="products.js?v=20261013"></script>
+<script src="storefront.js?v=20261013"></script>
+
 <script>
 
-  /*
-    ------------------------------------------------
-    PRODUCTS
-    ------------------------------------------------
-
-    These are example products.
-
-    Later we will replace:
-    - product names
-    - prices
-    - colors
-    - real photos
-    - stock
-  */
-
-  const products = [
-
-    {
-      id: 1,
-      name: "KADA Ceramic 550ml",
-      price: 29.99,
-      category: "Ceramic",
-      icon: "🥤"
-    },
-
-    {
-      id: 2,
-      name: "KADA Ceramic 700ml",
-      price: 34.99,
-      category: "Ceramic",
-      icon: "🥤"
-    },
-
-    {
-      id: 3,
-      name: "KADA Tritan",
-      price: 18.99,
-      category: "Tritan",
-      icon: "🧋"
-    },
-
-    {
-      id: 4,
-      name: "CarryGo Tumbler",
-      price: 29.99,
-      category: "Stainless",
-      icon: "☕"
-    },
-
-    {
-      id: 5,
-      name: "Split Cup",
-      price: 28.99,
-      category: "Stainless",
-      icon: "🥛"
-    },
-
-    {
-      id: 6,
-      name: "Titanium Collection",
-      price: 88.99,
-      category: "Titanium",
-      icon: "🏆"
-    }
-
-  ];
+  // Numeric product IDs preserve compatibility with existing saved carts.
+  const products = window.getStorefrontProducts();
 
 
   /*
@@ -1082,82 +473,24 @@
 
 
   function renderProducts(category = "All") {
+    window.renderCatalog(category);
+  }
 
-    const container =
-      document.getElementById("productList");
-
-
-    const filtered =
-      category === "All"
-        ? products
-        : products.filter(
-            product => product.category === category
-          );
-
-
-    container.innerHTML =
-      filtered.map(product => `
-
-        <div class="product-card">
-
-          <div class="product-image">
-            ${product.icon}
-          </div>
-
-          <div class="product-info">
-
-            <div class="product-category">
-              ${product.category}
-            </div>
-
-            <div class="product-name">
-              ${product.name}
-            </div>
-
-            <div class="product-price">
-              ${money(product.price)}
-            </div>
-
-            <button
-              class="add-btn"
-              onclick="addToCart(${product.id})"
-            >
-              Add to Cart
-            </button>
-
-          </div>
-
-        </div>
-
-      `).join("");
-
+  function filterProducts(category) {
+    window.filterCatalog(category);
   }
 
 
-  function filterProducts(category, button) {
-
-    document
-      .querySelectorAll(".filter-btn")
-      .forEach(btn =>
-        btn.classList.remove("active")
-      );
-
-
-    button.classList.add("active");
-
-
-    renderProducts(category);
-
-  }
-
-
-  function addToCart(productId) {
+  function addToCart(productId, requestedQuantity = 1) {
 
     const product =
       products.find(
         item => item.id === productId
       );
 
+
+    if (!product || product.inStock === false) return;
+    const quantity = Math.max(1, Math.min(20, Math.floor(Number(requestedQuantity) || 1)));
 
     const existing =
       cart.find(
@@ -1167,7 +500,7 @@
 
     if (existing) {
 
-      existing.quantity++;
+      existing.quantity += quantity;
 
     } else {
 
@@ -1175,7 +508,7 @@
 
         ...product,
 
-        quantity: 1
+        quantity
 
       });
 
@@ -1312,13 +645,13 @@
         <div class="cart-item">
 
           <div class="cart-thumb">
-            ${item.icon}
+            ${window.renderProductThumbnail(item)}
           </div>
 
           <div>
 
             <div class="cart-item-name">
-              ${item.name}
+              ${window.escapeProductText(item.name)}
             </div>
 
             <div class="cart-item-price">
@@ -1406,6 +739,8 @@
 
   function openCart() {
 
+    window.closeStorePanels(false);
+
     renderCart();
 
     document
@@ -1421,6 +756,8 @@
 
 
   function closeEverything() {
+
+    window.closeStorePanels(false);
 
     document
       .getElementById("cartDrawer")
@@ -1669,12 +1006,10 @@
 
 </script>
 
-<script src="products.js"></script>
 
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVcW_ktDPKn1bmSlbz3dJXs3rXA4nqWl0&v=weekly&language=en&region=KH"></script>
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=22"></script>
+<script src="app.js?v=23"></script>
 
 </body>
 </html>
