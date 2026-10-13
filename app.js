@@ -148,7 +148,7 @@ window.updateLocationSection = function() {
     "Delivery Location *";
 
   description.textContent =
-    "Please use your current location so we can automatically fill your delivery address.";
+    "Please share your current location and enter your house number and street in the delivery address below.";
 };
 
 
@@ -709,9 +709,8 @@ landmark;
             font-size:12px;
             color:#777;
           ">
-            We received your exact map location,
-            but Google could not create the written address.
-            Please enter the delivery address manually.
+            Your exact map location is saved.
+            Please enter your house number and street in the delivery address below.
           </div>
         `;
       }
