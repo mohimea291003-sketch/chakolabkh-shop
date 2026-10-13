@@ -170,7 +170,11 @@ function formatDeliveryAddress(results, nearbyLandmark = "") {
   };
   const readable = results.filter(result => result && !result.types?.includes("plus_code"));
   // House, street, apartment and building must come from the same result.
-  const primary = readable.find(result => valueIn(result, "route")) ||
+  const primary = readable.find(result => result.types?.includes("street_address") &&
+    valueIn(result, "route") && result.formatted_address && !isPlusCode(result.formatted_address)) ||
+    readable.find(result => result.types?.includes("route") && valueIn(result, "route") &&
+      result.formatted_address && !isPlusCode(result.formatted_address)) ||
+    readable.find(result => valueIn(result, "route")) ||
     readable.find(result => valueIn(result, "premise")) || readable[0];
   const compatible = readable.filter(result => ["country", "locality", "administrative_area_level_2"].every(type => {
     const a = valueIn(primary, type), b = valueIn(result, type);
@@ -197,7 +201,11 @@ function formatDeliveryAddress(results, nearbyLandmark = "") {
     if (fallback) address = String(fallback.formatted_address);
   }
   if (!address) return {address: "", hasStreet: false};
-  const number = valueIn(primary, "street_number");
+  const houseNumbers = new Set(compatible.filter(result => result.types?.includes("street_address") &&
+    valueIn(result, "route").toLowerCase() === street.toLowerCase())
+    .map(result => valueIn(result, "street_number")).filter(Boolean));
+  const number = primary?.types?.includes("street_address") && houseNumbers.size <= 1 ?
+    valueIn(primary, "street_number") : "";
   const prefix = number ? "House No: " + number + ", " : "House No: [Please enter], ";
   const suppliedName = typeof nearbyLandmark === "string" ? nearbyLandmark : nearbyLandmark?.name;
   const landmark = String(suppliedName || (street && premise ? premise : "")).trim().slice(0, 500);
