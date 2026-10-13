@@ -308,6 +308,11 @@
     required
     placeholder="House number, street, Sangkat, Khan, Borey or nearby landmark..."
   ></textarea>
+  <div id="deliveryLandmarkSuggestion" hidden>
+    <p id="deliveryLandmarkName" class="delivery-address-hint"></p>
+    <button id="deliveryLandmarkConfirm" type="button" class="delivery-map-link" style="width:100%;" onclick="confirmDeliveryLandmark()">Use this landmark</button>
+    <p class="delivery-address-hint">A nearby place may belong to another Borey. Use it only if it identifies your delivery location, or type the correct Borey / building into your address above.</p>
+  </div>
   <p id="deliveryAddressAttribution" class="delivery-address-attribution" hidden><span translate="no">Google Maps</span><span id="deliveryAddressProviderCredit"></span></p>
 </div>
       <div class="form-group full">
@@ -1036,7 +1041,7 @@
 
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=26"></script>
+<script src="app.js?v=27"></script>
 
 </body>
 </html>

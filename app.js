@@ -159,6 +159,7 @@ window.updateLocationSection = function() {
 // Address lookup runs in the shop's Apps Script, without a public Maps key.
 const DELIVERY_ADDRESS_API_VERSION = "chako-delivery-address-v2";
 let deliveryLocationBusy = false;
+let pendingDeliveryLandmark = "";
 
 function formatDeliveryAddress(results, nearbyLandmark = "") {
   const isPlusCode = text => /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/i.test(String(text || "").trim());
@@ -210,7 +211,7 @@ function formatDeliveryAddress(results, nearbyLandmark = "") {
   const suppliedName = typeof nearbyLandmark === "string" ? nearbyLandmark : nearbyLandmark?.name;
   const landmark = String(suppliedName || (street && premise ? premise : "")).trim().slice(0, 500);
   const suffix = landmark && !isPlusCode(landmark) && !address.toLowerCase().includes(landmark.toLowerCase()) ? " — " + landmark : "";
-  return {address: prefix + address + suffix, hasStreet: !!street, landmark: suffix ? landmark : ""};
+  return {address: prefix + address + suffix, baseAddress: prefix + address, hasStreet: !!street, landmark: suffix ? landmark : ""};
 }
 
 async function requestDeliveryAddress(latitude, longitude) {
@@ -225,13 +226,26 @@ async function requestDeliveryAddress(latitude, longitude) {
     if (!data.ok || ![DELIVERY_ADDRESS_API_VERSION, "chako-delivery-address-v1"].includes(data.addressApiVersion) || !Array.isArray(data.results)) {
       throw new Error("Address lookup unavailable");
     }
-    return {...formatDeliveryAddress(data.results, data.landmark),
+    const formatted = formatDeliveryAddress(data.results, data.landmark);
+    return {...formatted, address: formatted.baseAddress || formatted.address,
       landmarkStatus: data.landmarkStatus || "GEOCODE_ONLY",
       attributions: Array.isArray(data.landmarkAttributions) ? data.landmarkAttributions.filter(value => typeof value === "string") : []};
   } finally {
     if (timer !== null) clearTimeout(timer);
   }
 }
+
+window.confirmDeliveryLandmark = function() {
+  const address = document.getElementById("customerAddress");
+  if (!address || !pendingDeliveryLandmark) return;
+  if (!address.value.trim()) { address.focus(); return; }
+  if (!address.value.toLowerCase().includes(pendingDeliveryLandmark.toLowerCase())) {
+    address.value = address.value.trim() + " — " + pendingDeliveryLandmark;
+  }
+  pendingDeliveryLandmark = "";
+  const suggestion = document.getElementById("deliveryLandmarkSuggestion");
+  if (suggestion) suggestion.hidden = true;
+};
 
 window.getDeliveryLocation = function() {
   const status = document.getElementById("deliveryLocationStatus");
@@ -243,6 +257,9 @@ window.getDeliveryLocation = function() {
     return;
   }
   const originalAddress = addressField?.value || "";
+  pendingDeliveryLandmark = "";
+  const suggestion = document.getElementById("deliveryLandmarkSuggestion");
+  if (suggestion) suggestion.hidden = true;
   deliveryLocationBusy = true;
   if (button) button.disabled = true;
   status.textContent = "📍 Getting your current location...";
@@ -265,8 +282,14 @@ window.getDeliveryLocation = function() {
           if (addressField.value === originalAddress) {
             addressField.value = found.address;
             message = found.landmark ?
-              "Address filled automatically with a nearby landmark. Please check your house number, street, and landmark before continuing." :
+              "Address filled automatically. Please check your house number and street. A nearby landmark is suggested below; add it only if it is correct." :
               "Address filled automatically. Please check your house number and street, and add your Borey or nearby landmark if it is missing.";
+            if (found.landmark && suggestion) {
+              pendingDeliveryLandmark = found.landmark;
+              const name = document.getElementById("deliveryLandmarkName");
+              if (name) name.textContent = "Nearby suggestion: " + found.landmark;
+              suggestion.hidden = false;
+            }
             const credit = document.getElementById("deliveryAddressAttribution");
             const providers = document.getElementById("deliveryAddressProviderCredit");
             if (credit) credit.hidden = false;
