@@ -8,7 +8,7 @@
   <meta name="description" content="Explore CHAKO LAB tumblers in Cambodia: ceramic, stainless steel, Tritan and titanium. Personal engraving and delivery across Cambodia.">
   <meta name="theme-color" content="#000000">
 
-  <link rel="stylesheet" href="style.css?v=20261013-2">
+  <link rel="stylesheet" href="style.css?v=20261013-3">
   
 </head>
 
@@ -268,7 +268,7 @@
             margin-bottom:10px;
           "
         >
-          Cash on Delivery in Phnom Penh requires your delivery location.
+          Share your current location to fill your delivery address, then check your house number and nearby landmark.
         </p>
 
         <button
@@ -306,8 +306,9 @@
   <textarea
     id="customerAddress"
     required
-    placeholder="House number, street, Sangkat, Khan..."
+    placeholder="House number, street, Sangkat, Khan, Borey or nearby landmark..."
   ></textarea>
+  <p id="deliveryAddressAttribution" class="delivery-address-attribution" hidden><span translate="no">Google Maps</span><span id="deliveryAddressProviderCredit"></span></p>
 </div>
       <div class="form-group full">
         <label>Engraving / Order Note</label>
@@ -867,6 +868,12 @@
 
         event.preventDefault();
 
+        if (typeof deliveryLocationBusy !== "undefined" && deliveryLocationBusy) {
+          alert("Please wait for your delivery address and nearby landmark to finish loading.");
+          document.getElementById("deliveryLocationButton")?.focus();
+          return;
+        }
+
         if (!document.getElementById("customerLatitude").value ||
             !document.getElementById("customerLongitude").value) {
           alert("Please tap “Use My Current Location” before continuing your order.");
@@ -1029,7 +1036,7 @@
 
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=24"></script>
+<script src="app.js?v=25"></script>
 
 </body>
 </html>

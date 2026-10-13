@@ -148,7 +148,7 @@ window.updateLocationSection = function() {
     "Delivery Location *";
 
   description.textContent =
-    "Share your current location to fill your delivery address automatically, then check your house number and street.";
+    "Share your current location to fill your delivery address, then check your house number, street, and nearby landmark.";
 };
 
 
@@ -157,24 +157,31 @@ window.updateLocationSection = function() {
    ========================================= */
 
 // Address lookup runs in the shop's Apps Script, without a public Maps key.
-const DELIVERY_ADDRESS_API_VERSION = "chako-delivery-address-v1";
+const DELIVERY_ADDRESS_API_VERSION = "chako-delivery-address-v2";
 let deliveryLocationBusy = false;
 
-function formatDeliveryAddress(results) {
+function formatDeliveryAddress(results, nearbyLandmark = "") {
   const isPlusCode = text => /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/i.test(String(text || "").trim());
-  const component = type => {
-    for (const result of results) {
-      const item = (result.address_components || []).find(value =>
-        Array.isArray(value.types) && value.types.includes(type));
-      const name = String(item?.long_name || "").trim();
-      if (name && !isPlusCode(name)) return name;
-    }
-    return "";
+  const valueIn = (result, type) => {
+    const item = (Array.isArray(result?.address_components) ? result.address_components : []).find(value =>
+      Array.isArray(value?.types) && value.types.includes(type));
+    const name = String(item?.long_name || "").trim();
+    return name && !isPlusCode(name) ? name : "";
   };
-  const street = component("route");
-  const premise = component("premise");
+  const readable = results.filter(result => result && !result.types?.includes("plus_code"));
+  // House, street, apartment and building must come from the same result.
+  const primary = readable.find(result => valueIn(result, "route")) ||
+    readable.find(result => valueIn(result, "premise")) || readable[0];
+  const compatible = readable.filter(result => ["country", "locality", "administrative_area_level_2"].every(type => {
+    const a = valueIn(primary, type), b = valueIn(result, type);
+    return !a || !b || a.toLowerCase() === b.toLowerCase();
+  }));
+  const component = type => valueIn(primary, type) || compatible.map(result => valueIn(result, type)).find(Boolean) || "";
+  const street = valueIn(primary, "route");
+  const premise = valueIn(primary, "premise");
   const pieces = [
-    street || premise, component("subpremise"),
+    street || premise, valueIn(primary, "subpremise"),
+    component("administrative_area_level_4") || component("sublocality_level_3"),
     component("administrative_area_level_3") || component("sublocality_level_2") || component("neighborhood"),
     component("administrative_area_level_2") || component("sublocality_level_1"),
     component("locality") || component("administrative_area_level_1"),
@@ -182,17 +189,20 @@ function formatDeliveryAddress(results) {
   ].filter(Boolean);
   let address = Array.from(new Map(pieces.map(value => [value.toLowerCase(), value])).values()).join(", ");
   if (!street) {
-    const preferred = results.find(result =>
+    const preferred = readable.find(result =>
       result.types?.some(type => ["street_address", "route", "premise"].includes(type)) &&
       result.formatted_address && !isPlusCode(result.formatted_address));
-    const fallback = preferred || results.find(result =>
+    const fallback = preferred || readable.find(result =>
       result.formatted_address && !isPlusCode(result.formatted_address) && !result.types?.includes("plus_code"));
     if (fallback) address = String(fallback.formatted_address);
   }
   if (!address) return {address: "", hasStreet: false};
-  const number = component("street_number");
+  const number = valueIn(primary, "street_number");
   const prefix = number ? "House No: " + number + ", " : "House No: [Please enter], ";
-  return {address: prefix + address + (street && premise ? " — " + premise : ""), hasStreet: !!street};
+  const suppliedName = typeof nearbyLandmark === "string" ? nearbyLandmark : nearbyLandmark?.name;
+  const landmark = String(suppliedName || (street && premise ? premise : "")).trim().slice(0, 500);
+  const suffix = landmark && !isPlusCode(landmark) && !address.toLowerCase().includes(landmark.toLowerCase()) ? " — " + landmark : "";
+  return {address: prefix + address + suffix, hasStreet: !!street, landmark: suffix ? landmark : ""};
 }
 
 async function requestDeliveryAddress(latitude, longitude) {
@@ -204,10 +214,12 @@ async function requestDeliveryAddress(latitude, longitude) {
     const response = await fetch(url, {cache: "no-store", ...(controller ? {signal: controller.signal} : {})});
     if (!response.ok) throw new Error("Address lookup unavailable");
     const data = await response.json();
-    if (!data.ok || data.addressApiVersion !== DELIVERY_ADDRESS_API_VERSION || !Array.isArray(data.results)) {
+    if (!data.ok || ![DELIVERY_ADDRESS_API_VERSION, "chako-delivery-address-v1"].includes(data.addressApiVersion) || !Array.isArray(data.results)) {
       throw new Error("Address lookup unavailable");
     }
-    return formatDeliveryAddress(data.results);
+    return {...formatDeliveryAddress(data.results, data.landmark),
+      landmarkStatus: data.landmarkStatus || "GEOCODE_ONLY",
+      attributions: Array.isArray(data.landmarkAttributions) ? data.landmarkAttributions.filter(value => typeof value === "string") : []};
   } finally {
     if (timer !== null) clearTimeout(timer);
   }
@@ -238,13 +250,19 @@ window.getDeliveryLocation = function() {
       document.getElementById("customerLongitude").value = String(longitude);
       const mapLink = "https://www.google.com/maps/search/?api=1&query=" + latitude + "," + longitude;
       status.textContent = "📍 Location received. Finding your address...";
-      let message = "Your exact map location is saved. Please enter your house number and street below.";
+      let message = "Your map location is saved. Please enter your house number, street, and Borey or nearby landmark below.";
       try {
         const found = await requestDeliveryAddress(latitude, longitude);
         if (found.address && addressField) {
           if (addressField.value === originalAddress) {
             addressField.value = found.address;
-            message = "Address filled automatically. Please check your house number and street, and edit them if needed.";
+            message = found.landmark ?
+              "Address filled automatically with a nearby landmark. Please check your house number, street, and landmark before continuing." :
+              "Address filled automatically. Please check your house number and street, and add your Borey or nearby landmark if it is missing.";
+            const credit = document.getElementById("deliveryAddressAttribution");
+            const providers = document.getElementById("deliveryAddressProviderCredit");
+            if (credit) credit.hidden = false;
+            if (providers) providers.textContent = found.attributions.length ? " · " + found.attributions.join(", ") : "";
           } else {
             message = "Your location is saved and your edited address was kept. Please check it before continuing.";
           }
