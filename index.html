@@ -373,11 +373,15 @@
     <strong id="paymentAmount">$0.00</strong>
   </div>
 
-  <img
-    src="aba-khqr.jpg"
-    alt="CHAKO LAB ABA KHQR"
-    class="payment-qr"
-  >
+  <div class="dynamic-khqr-panel" id="dynamicKHQRPanel">
+    <div id="dynamicKHQRDisplay" role="img" aria-label="ABA KHQR code for the exact order amount"></div>
+    <div id="dynamicKHQRStatus" role="status" aria-live="polite">Preparing your exact-amount ABA KHQR…</div>
+    <button id="downloadDynamicKHQR" class="checkout-btn" type="button" hidden>Save payment QR</button>
+    <div id="dynamicKHQRRecipient" class="dynamic-khqr-recipient"></div>
+  </div>
+  <div id="dynamicKHQRError" class="dynamic-khqr-error" hidden>
+    The exact-amount payment QR could not be prepared. Please contact CHAKO LAB to complete your order.
+  </div>
 
   <p class="payment-note">
     After paying, upload your payment receipt and tap “I Have Paid”.
@@ -1041,7 +1045,10 @@
 
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=27"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" referrerpolicy="no-referrer"></script>
+<script src="dynamic-khqr.js?v=1"></script>
+<script src="app.js?v=28"></script>
 
 </body>
 </html>
