@@ -373,11 +373,15 @@
     <strong id="paymentAmount">$0.00</strong>
   </div>
 
-  <img
-    src="aba-khqr.jpg"
-    alt="CHAKO LAB ABA KHQR"
-    class="payment-qr"
-  >
+  <div class="dynamic-khqr-panel" id="dynamicKHQRPanel">
+    <div id="dynamicKHQRDisplay" role="img" aria-label="ABA KHQR code for the exact order amount"></div>
+    <div id="dynamicKHQRStatus" role="status" aria-live="polite">Preparing your exact-amount ABA KHQR…</div>
+    <button id="downloadDynamicKHQR" class="checkout-btn" type="button" hidden>Save payment QR</button>
+    <div id="dynamicKHQRRecipient" class="dynamic-khqr-recipient"></div>
+  </div>
+  <div id="dynamicKHQRError" class="dynamic-khqr-error" hidden>
+    The exact-amount payment QR could not be prepared. Please contact CHAKO LAB to complete your order.
+  </div>
 
   <p class="payment-note">
     After paying, upload your payment receipt and tap “I Have Paid”.
@@ -469,11 +473,17 @@
     try {
       const saved = JSON.parse(localStorage.getItem("chakoCart") || "[]");
       if (!Array.isArray(saved)) return [];
-      return saved.filter(item => item && typeof item === "object" &&
-        products.some(product => product.id === Number(item.id)) &&
-        Number.isFinite(Number(item.price)) && Number(item.price) > 0 &&
-        Number.isInteger(Number(item.quantity)) && Number(item.quantity) > 0)
-        .map(item => ({...item, id: Number(item.id), price: Number(item.price), quantity: Number(item.quantity)}));
+      // Rehydrate product prices and stock status from the current catalogue,
+      // never from an old browser cart. Final price validation still belongs on the server.
+      return saved.map(item => {
+        if (!item || typeof item !== "object") return null;
+        const product = products.find(p => p.id === Number(item.id));
+        const quantity = Number(item.quantity);
+        if (!product || product.inStock === false ||
+            !Number.isFinite(Number(product.price)) || Number(product.price) <= 0 ||
+            !Number.isInteger(quantity) || quantity <= 0) return null;
+        return {...product, quantity: Math.min(quantity, 99)};
+      }).filter(Boolean);
     } catch (error) { return []; }
   }
 
@@ -1041,7 +1051,10 @@
 
 
 <script src="payment-proof.js?v=3"></script>
-<script src="app.js?v=27"></script>
+<script src="vendor/jsQR.js?v=1"></script>
+<script src="vendor/qrcode.min.js?v=1"></script>
+<script src="dynamic-khqr.js?v=1"></script>
+<script src="app.js?v=28"></script>
 
 </body>
 </html>

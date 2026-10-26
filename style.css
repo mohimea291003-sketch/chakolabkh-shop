@@ -1830,3 +1830,12 @@ summary::-webkit-details-marker { display: none; }
 .delivery-address-attribution {margin:8px 0 0;font-family:Arial,sans-serif;font-size:12px;font-style:normal;font-weight:400;letter-spacing:normal;color:#5e5e5e;line-height:1.5;}
 .delivery-address-attribution > span:first-child {white-space:nowrap;}
 #deliveryLocationButton:disabled {opacity:.65;cursor:wait;}
+
+/* Exact-amount KHQR payment panel */
+.dynamic-khqr-panel[hidden], .dynamic-khqr-error[hidden], #downloadDynamicKHQR[hidden] { display:none!important }
+.dynamic-khqr-panel { text-align:center; margin:14px auto; max-width:370px }
+#dynamicKHQRDisplay { margin:12px auto; width:264px; max-width:100%; min-height:240px; padding:12px; background:#fff; border:1px solid #e9e5e1; border-radius:12px }
+#dynamicKHQRDisplay canvas,#dynamicKHQRDisplay img { display:block; width:100%; max-width:240px; height:auto; margin:auto }
+#dynamicKHQRStatus,.dynamic-khqr-recipient { color:#605b60; font-size:13px; line-height:1.5; margin:8px auto }
+.dynamic-khqr-error { margin:14px auto; padding:12px; border:1px solid #c47d7d; border-radius:10px; color:#922; background:#fff7f7; font-size:13px }
+#downloadDynamicKHQR { margin:10px auto; }
