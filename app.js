@@ -314,6 +314,47 @@ window.getDeliveryLocation = function() {
    ORDER PAYMENT ROUTING
    ========================================= */
 
+async function displayDynamicKHQRForOrder(order) {
+  const status = document.getElementById("dynamicKHQRStatus");
+  const display = document.getElementById("dynamicKHQRDisplay");
+  const error = document.getElementById("dynamicKHQRError");
+  const panel = document.getElementById("dynamicKHQRPanel");
+  const recipient = document.getElementById("dynamicKHQRRecipient");
+  const download = document.getElementById("downloadDynamicKHQR");
+  if (!status || !display || !error || !panel || !recipient || !download) return;
+  error.hidden = true;
+  panel.hidden = false;
+  download.hidden = true;
+  display.replaceChildren();
+  recipient.textContent = "";
+  status.textContent = "Preparing your exact-amount ABA KHQR…";
+  try {
+    if (!window.CHAKO_KHQR) throw Error("KHQR generator unavailable");
+    const amount = Number(order.lastVerifiedPayment?.remainingAmount ?? order.total);
+    const generated = await window.CHAKO_KHQR.createForUSD(amount);
+    if (pendingPaymentOrder !== order) return;
+    window.CHAKO_KHQR.draw(generated.payload, display);
+    recipient.textContent = "Pay USD $" + generated.amount + " to " + generated.recipient + ". Check this name in ABA before confirming.";
+    status.textContent = "Scan or save this QR using ABA Mobile. Payment approval is not automatic.";
+    download.hidden = false;
+    download.onclick = () => {
+      const canvas = display.querySelector("canvas");
+      const image = display.querySelector("img");
+      const url = canvas?.toDataURL("image/png") || image?.src;
+      if (!url) return;
+      const anchor = document.createElement("a");
+      anchor.download = "CHAKO-" + String(order.orderNumber || "order").replace(/[^a-zA-Z0-9-]/g,"") + "-KHQR.png";
+      anchor.href = url;
+      anchor.click();
+    };
+  } catch (e) {
+    if (pendingPaymentOrder !== order) return;
+    panel.hidden = true;
+    error.hidden = false;
+    console.error("Dynamic KHQR could not be generated:", e);
+  }
+}
+
 window.openPaymentModal = function(order) {
 
   /* =========================================
@@ -408,6 +449,7 @@ window.openPaymentModal = function(order) {
   restorePaymentOrder(order);
   pendingPaymentOrder = order;
   renderPaymentProofs(order);
+  void displayDynamicKHQRForOrder(order);
 
   document.getElementById(
     "paymentAmount"
@@ -644,6 +686,7 @@ function showPaymentBalance(data, pending = false) {
   if (!pending && extra === 0) {
     document.getElementById("paymentAmount").textContent = "$" + remaining.toFixed(2);
     document.getElementById("paymentAmountLabel").textContent = "Remaining to pay";
+    if (pendingPaymentOrder) void displayDynamicKHQRForOrder(pendingPaymentOrder);
   }
 }
 
