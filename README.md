@@ -26,6 +26,22 @@ was through the separate QR test tool, **not this website checkout**.
 - Existing staff-reviewed receipt processing remains in place.
 - Existing Phnom Penh COD and province ABA-only payment options remain in place.
 
+### Open the test website on a Mac (without publishing)
+
+1. Download the ZIP of this **feature branch** from GitHub and unzip it.
+2. Open Terminal; type `cd ` (including the space), drag the unzipped project
+   folder onto the Terminal window, and press Enter.
+3. Run `python3 -m http.server 8000` and open
+   `http://localhost:8000/` in Chrome.
+4. Browse products, add to cart, enter a test delivery address/location, and
+   choose ABA / KHQR. Look for the amount-specific QR and Save QR button.
+5. Test on a phone using the local network only if you know how to securely
+   serve the preview over HTTPS. Browsers may deny location access over
+   insecure LAN HTTP. Do not force a real checkout from local files.
+
+Do not open `index.html` directly as a local `file://` URL: decoding the
+original QR's image pixels may be blocked by browser security rules.
+
 ### Release checklist — do not merge until complete
 
 1. Load the branch in a real HTTP/HTTPS browser environment, not a `file://`
